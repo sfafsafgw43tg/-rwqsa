@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-KAMELEON PDF — silnik dat.
+PrOximAl edit — silnik dat.
 Parsuje daty (numeryczne i polskie słowne), zapamiętuje ich format
 i potrafi wygenerować NOWĄ datę w DOKŁADNIE takim samym formacie.
 Obsługuje synchronizację: jedna zmiana daty aktualizuje wszystkie
@@ -106,6 +106,8 @@ def find_dates(text: str) -> list[DateHit]:
             if h.month is None or (h.month and not (1 <= h.month <= 12)):
                 continue
             if h.day is not None and not (1 <= h.day <= 31):
+                continue
+            if h.year and h.month and h.day and h.date is None:
                 continue
             hits.append(h)
             taken.append((s, e))

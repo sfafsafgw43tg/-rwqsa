@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-KAMELEON PDF — tryb wsadowy.
+PrOximAl edit — tryb wsadowy.
 Stosuje to samo mapowanie podmian do wielu podobnych plików PDF
 (np. faktur z tego samego szablonu) — dopasowanie po etykiecie lub wartości.
 """
@@ -24,7 +24,10 @@ def _match_items(items: list, mapping: list[dict]) -> list[tuple]:
                 continue
             by_label = bool(label) and label == (it.label or "").strip().lower()
             by_value = bool(old) and old == it.value.strip()
-            if by_label or by_value:
+            same_type = not m.get("typ") or m["typ"] == it.type
+            # An explicit old value is authoritative: a shared label must not
+            # change unrelated values (e.g. several amounts labelled "Cena").
+            if same_type and (by_value if old else by_label):
                 jobs.append((it, new))
                 break
     return jobs

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Generator przykładowych dokumentów testowych dla KAMELEON PDF.
+"""Generator przykładowych dokumentów testowych dla PrOximAl edit.
 Używa prawdziwych fontów TTF (Liberation = odpowiednik Arial/Times/Courier),
 aby polskie znaki działały jak w prawdziwych dokumentach."""
 import os

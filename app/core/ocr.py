@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-KAMELEON PDF — OCR (opcjonalny, offline).
+PrOximAl edit — OCR (opcjonalny, offline).
 Dla stron zeskanowanych (bez warstwy tekstu) używa Tesseract (język polski).
 Moduł działa tylko, gdy Tesseract jest zainstalowany — instalator BAT
 oferuje jego doinstalowanie; bez niego aplikacja działa normalnie,
@@ -9,12 +9,24 @@ a strony skanowane są jedynie oznaczane w analizie.
 from __future__ import annotations
 
 import shutil
+import os
+from pathlib import Path
 
 import pymupdf
 
 
 def tesseract_available() -> bool:
-    return shutil.which("tesseract") is not None
+    import pytesseract
+    exe = shutil.which("tesseract")
+    if not exe:
+        for root in (os.environ.get("ProgramFiles", ""), os.environ.get("ProgramFiles(x86)", "")):
+            candidate = Path(root) / "Tesseract-OCR" / "tesseract.exe"
+            if root and candidate.is_file():
+                exe = str(candidate)
+                break
+    if exe:
+        pytesseract.pytesseract.tesseract_cmd = exe
+    return exe is not None
 
 
 def ocr_page_text(page, lang: str = "pol", dpi: int = 300) -> str:
@@ -44,6 +56,10 @@ def ocr_words_with_geometry(page, lang: str = "pol", dpi: int = 300) -> list[dic
         import io
     except ImportError:
         raise RuntimeError("Wymagane: pip install pytesseract pillow oraz Tesseract OCR")
+    if not tesseract_available():
+        raise RuntimeError("Nie znaleziono Tesseract OCR. Uruchom instalator.")
+    if lang not in pytesseract.get_languages(config=""):
+        raise RuntimeError(f"Brak języka OCR: {lang}. Doinstaluj pakiet językowy Tesseract.")
     pix = page.get_pixmap(dpi=dpi, alpha=False)
     img = Image.open(io.BytesIO(pix.tobytes("png")))
     data = pytesseract.image_to_data(img, lang=lang, output_type=pytesseract.Output.DICT)
@@ -51,7 +67,7 @@ def ocr_words_with_geometry(page, lang: str = "pol", dpi: int = 300) -> list[dic
     words = []
     for i in range(len(data["text"])):
         t = data["text"][i].strip()
-        if not t or int(data["conf"][i]) < 35:
+        if not t or float(data["conf"][i]) < 35:
             continue
         x, y, w, h = data["left"][i] * scale, data["top"][i] * scale, data["width"][i] * scale, data["height"][i] * scale
         words.append({"text": t, "bbox": (x, y, x + w, y + h), "line": (data["block_num"][i], data["par_num"][i], data["line_num"][i])})
@@ -63,66 +79,46 @@ def ocr_page_to_pdf(page, lang: str = "pol", dpi: int = 300) -> list[dict]:
     return ocr_words_with_geometry(page, lang, dpi)
 
 
-def refine_item_rects(page, items: list, dpi: int = 300, ink_thresh: int = 140,
-                      gap_tol_pt: float = 1.8) -> list:
-    """
-    Doprecyzowuje prostokąty elementów OCR na podstawie pikseli obrazu:
-    rozszerzaeach bbox do pełnego, ciągłego atramentu (z tolerancją przerw
-    między znakami), dzięki czemu czyszczenie/redakcja obejmuje CAŁY stary tekst.
-    """
-    if not items:
-        return items
-    pix = page.get_pixmap(dpi=dpi, colorspace=pymupdf.csGRAY, alpha=False)
-    w, h = pix.width, pix.height
-    buf = pix.samples
-    scale = dpi / 72.0
-    gap_tol = max(1, int(gap_tol_pt * scale))
-
-    def dark(x, y):
-        return buf[y * w + x] < ink_thresh
-
-    for it in items:
-        try:
-            x0, y0, x1, y1 = it.rect
-            X0 = max(0, int(x0 * scale) - 3); Y0 = max(0, int(y0 * scale) - 3)
-            X1 = min(w - 1, int(x1 * scale) + 3); Y1 = min(h - 1, int(y1 * scale) + 3)
-
-            def col_ink(x, ya, yb):
-                return any(buf[y * w + x] < ink_thresh for y in range(ya, yb + 1))
-
-            def row_ink(y, xa, xb):
-                return any(buf[y * w + x] < ink_thresh for x in range(xa, xb + 1))
-
-            # horyzontalny spacer od krawędzi seeda, z tolerancją przerw
-            lx, gap, x = X0, 0, X0
-            while x > 0 and gap <= gap_tol:
-                if col_ink(x, Y0, Y1): lx = x; gap = 0
-                else: gap += 1
-                x -= 1
-            rx, gap, x = X1, 0, X1
-            while x < w - 1 and gap <= gap_tol:
-                if col_ink(x, Y0, Y1): rx = x; gap = 0
-                else: gap += 1
-                x += 1
-            # wertykalny spacer w obrębie [lx, rx]
-            ty, gap, y = Y0, 0, Y0
-            while y > 0 and gap <= gap_tol:
-                if row_ink(y, lx, rx): ty = y; gap = 0
-                else: gap += 1
-                y -= 1
-            by, gap, y = Y1, 0, Y1
-            while y < h - 1 and gap <= gap_tol:
-                if row_ink(y, lx, rx): by = y; gap = 0
-                else: gap += 1
-                y += 1
-
-            nrect = (lx / scale, ty / scale, (rx + 1) / scale, (by + 1) / scale)
-            it.pieces[0].rect = nrect
-            sp = it.pieces[0].span
-            sp.bbox = nrect
-            nh = nrect[3] - nrect[1]
-            sp.size = max(4.0, 0.78 * nh)
-            sp.origin = (nrect[0], nrect[3] - 0.22 * nh)
-        except Exception:
-            continue
+def refine_item_rects(page, items: list, **kwargs) -> list:
+    """Keep OCR word bounds; never grow into an adjacent word or table row."""
     return items
+
+
+def ocr_page_lines(page, lang="pol", dpi=260) -> list[dict]:
+    from .analyzer import SpanInfo
+    rotation = page.rotation
+    page.set_rotation(0)
+    try:
+        words = ocr_words_with_geometry(page, lang=lang, dpi=dpi)
+    finally:
+        page.set_rotation(rotation)
+    groups = {}
+    for word in words:
+        groups.setdefault(word["line"], []).append(word)
+    result = []
+    for words in groups.values():
+        spans = []
+        for word in sorted(words, key=lambda w: w["bbox"][0]):
+            x0, y0, x1, y1 = word["bbox"]
+            text = word["text"]
+            # OCR has word, not glyph geometry. Proportional character widths
+            # stay inside that word; the synthetic separator has zero width.
+            font = pymupdf.Font("helv")
+            widths = [font.text_length(c) for c in text]
+            total = sum(widths) or 1
+            x = x0
+            rects = []
+            for width in widths:
+                end = x + (x1 - x0) * width / total
+                rects.append((x, y0, end, y1))
+                x = end
+            rects.append((x1, y0, x1, y1))
+            h = max(4, y1 - y0)
+            spans.append(SpanInfo(text + " ", (x0, y0, x1, y1),
+                                  (x0, y1 - .15 * h), "Helvetica", .85 * h,
+                                  0, 0, char_rects=rects))
+        bbox = (min(s.bbox[0] for s in spans), min(s.bbox[1] for s in spans),
+                max(s.bbox[2] for s in spans), max(s.bbox[3] for s in spans))
+        result.append({"text": "".join(s.text for s in spans), "spans": spans,
+                       "bbox": bbox, "dir": (1, 0)})
+    return sorted(result, key=lambda line: (line["bbox"][1], line["bbox"][0]))

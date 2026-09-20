@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""KAMELEON PDF — raporty (JSON/CSV) oraz mapowania podmian do trybu wsadowego."""
+"""PrOximAl edit — raporty (JSON/CSV) oraz mapowania podmian do trybu wsadowego."""
 from __future__ import annotations
 
 import csv
@@ -50,6 +50,8 @@ def export_mapping(path: str, items: list):
 def import_mapping(path: str) -> list[dict]:
     with open(path, "r", encoding="utf-8-sig") as f:
         data = json.load(f)
+    if not isinstance(data, list):
+        raise ValueError("Mapowanie JSON musi być listą zmian.")
     out = []
     for d in data:
         if isinstance(d, dict) and "stara" in d and "nowa" in d:

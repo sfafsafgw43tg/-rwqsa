@@ -1,83 +1,178 @@
-# 🦎 KAMELEON PDF
+# PrOximAl <small>edit</small>
 
-**Profesjonalna, w pełni offline'owa aplikacja do czytania i podmiany danych w dokumentach PDF** — imion i nazwisk, wszystkich numerów (z ich opisami/etykietami) oraz dat — z zachowaniem oryginalnej czcionki, koloru i położenia, **bez nakładania elementów na siebie**.
+Lokalna aplikacja **komputerowa** do podmiany danych w PDF. Natywne okno Qt,
+prosty ciemnoszary interfejs, polskie opisy. **Nie otwiera przeglądarki,
+nie uruchamia serwera HTTP i nie wymaga internetu podczas pracy.**
 
----
+## Windows — instalacja i uruchomienie
 
-## ✨ Możliwości
+Wymagania: Windows 10/11, 64-bitowy Python 3.10+ (zalecany 3.12).
 
-| Funkcja | Opis |
-|---|---|
-| 🔎 **Automatyczna analiza** | Wykrywa: daty (numeryczne i polskie słowne), imiona i nazwiska, kwoty, PESEL (z sumą kontrolną), NIP (z sumą kontrolną), REGON, numery kont bankowych, kody pocztowe, telefony, procenty, numery faktur/umów/dowodów — każdy element **z etykietą ("za co odpowiada")** pobraną z dokumentu |
-| ✍️ **Podmiana 1:1** | Nowy tekst dostaje czcionkę oryginału (osadzoną w PDF lub najbliższy systemowy odpowiednik: Arial, Times, Courier, Calibri, Segoe UI…), ten sam kolor i pozycję |
-| 📏 **Zero nakładania** | Gdy nowy tekst jest dłuższy — aplikacja mierzy wolną przestrzeń i albo rozszerza zapis w pustkę, albo automatycznie zmniejsza czcionkę tak, by zmieścić się w starym obrysie |
-| 🗓 **Daty pod kontrolą** | Zmiana daty z zachowaniem formatu (`15.01.2024` → `10.03.2026`, `15 stycznia 2024 r.` → `10 marca 2026 r.`, `2024-01-15` → `2026-03-10`) + **zmiana dat pliku** (utworzony/zmodyfikowany, także data utworzenia na Windows) i **metadanych PDF** (CreationDate/ModDate) |
-| 🖨 **OCR skanów** | Strony zeskanowane (bez warstwy tekstu) są rozpoznawane przez Tesseract (język polski), z pikselowym czyszczeniem starego tekstu przed wstawieniem nowego |
-| 📚 **Tryb wsadowy** | To samo mapowanie zmian stosowane do wielu podobnych plików (np. faktur z jednego szablonu) — dopasowanie po etykiecie lub wartości, pobranie wszystkich wyników jako ZIP |
-| 👁 **Podgląd na żywo** | Render strony przed/po zmianach z kolorowymi ramkami wykrytych danych |
-| 📤 **Eksporty** | Zestawienie CSV/JSON (strona, typ, opis, wartość, czcionka, status), mapowanie JSON do trybu wsadowego |
-| 🔒 **100% offline** | Wszystko działa lokalnie; żaden plik nie opuszcza komputera |
+1. Umieść projekt w stałym folderze, do którego masz prawo zapisu.
+2. Uruchom `instalator.bat`. Instalacja pobiera biblioteki do osobnego `.venv`;
+   jeśli nie ma Pythona, próbuje zainstalować go przez `winget`.
+3. Instalator automatycznie tworzy **skrót „PrOximAl” na pulpicie**, wskazujący
+   na `pythonw.exe` i aplikację. Nie trzeba zostawiać otwartego terminala.
+4. Uruchom skrót lub `uruchom.bat`. Otworzy się okno **PrOximAl edit**.
 
-## 🚀 Instalacja (Windows)
+Internet jest potrzebny **przy instalacji**, nie do edytowania dokumentów.
+Przeniesienie folderu aplikacji wymaga ponownego utworzenia skrótu.
 
-1. Zainstaluj dwuklikiem **`instalator.bat`** — sam doinstaluje:
-   - Pythona (przez `winget`, jeśli go nie ma),
-   - biblioteki: `PyMuPDF`, `Flask`, `Pillow`, `pytesseract`,
-   - opcjonalnie **Tesseract OCR** z polskim językiem (do skanów),
-   - skrót „Kameleon PDF” na pulpicie.
-2. Uruchom **`uruchom.bat`** — otwierze się przeglądarka z aplikacją (serwer działa lokalnie).
+### Własna ikona
 
-> Wymagania: Windows 10/11. Internet potrzebny tylko przy instalacji narzędzi.
+W tej wersji repozytorium **nie było załączonych `csssanvas.png` ani `1.png`**.
+Obecna ikona „P” jest wyłącznie zastępcza, nie odtworzeniem przesłanej grafiki.
 
-## 🖱 Użycie
+Wstaw `csssanvas.png` (alternatywnie `1.png`) do folderu głównego projektu
+lub `app/assets/`, a następnie uruchom instalator ponownie. Grafika zostanie
+przekonwertowana do wielorozmiarowego `.ico` dla skrótu; aplikacja użyje również
+własnej grafiki. Gdy oba pliki istnieją w jednym folderze, pierwszeństwo ma
+`csssanvas.png`. Sam skrót i ikonę można odświeżyć poleceniem:
 
-1. Przeciągnij PDF do okna (albo kliknij i wybierz plik).
-2. Po prawej zobaczysz listę wykrytych danych z opisami — wpisz nowe wartości.
-3. Kliknij **„✨ Zastosuj zmiany”**, obejrzyj podgląd wyniku i pobierz plik `*_ZMIENIONY.pdf`.
-4. Panel **„🗓 Daty pliku”** zmieni daty systemowe pliku i metadane PDF.
-5. Przycisk **„📚 Tryb wsadowy”**: zapisz mapowanie (przycisk `MAPA`), wgraj wiele plików, uruchom.
-
-## 🧠 Jak działa silnik podmiany
-
-1. Z oryginalnego fragmentu pobierane są pełne metadane: czcionka, rozmiar, kolor, punkt bazowy.
-2. Próba ponownego użycia **czcionki osadzonej w PDF** (identyczny wygląd liter).
-3. W przeciwnym razie dobierany jest najlepszy odpowiednik systemowy (Arial↔Liberation Sans, Times↔Liberation Serif itd.), a awaryjnie wbudowane fonty base-14.
-4. Tło pod tekstem jest **próbkowane pikselowo** (mediana), więc podmiana wygląda naturalnie na każdym tle.
-5. Stary tekst jest usuwany redakcją PDF (dla skanów: wymazywany z obrazu), nowy wstawiany w tym samym punkcie bazowym.
-6. Szerokość nowego tekstu jest mierzona; przekroczenie obrysu = automatyczne zmniejszenie czcionki (poniżej progu użyteczności) lub rozszerzenie w wolną przestrzeń — **elementy nigdy na siebie nie nachodzą**.
-
-## 📁 Struktura projektu
-
-```
-KameleonPDF/
-├── instalator.bat          ← instalacja wszystkich składników (Windows)
-├── uruchom.bat             ← start aplikacji (Windows)
-├── uruchom.py              ← start aplikacji (Linux/macOS: python3 uruchom.py)
-├── requirements.txt
-├── app/
-│   ├── webapp.py           ← serwer + API
-│   ├── core/
-│   │   ├── analyzer.py     ← wykrywanie imion, numerów, dat + etykiety
-│   │   ├── replacer.py     ← podmiana z zachowaniem czcionki (redakcja+wstawienie)
-│   │   ├── fonts.py        ← dopasowanie czcionek systemowych/osadzonych
-│   │   ├── dates.py        ← parsowanie/formatowanie dat po polsku
-│   │   ├── filedates.py    ← daty pliku i metadanych PDF
-│   │   ├── batch.py        ← tryb wsadowy
-│   │   ├── report.py       ← eksporty CSV/JSON/mapowanie
-│   │   └── ocr.py          ← OCR + pikselowa rafinacja prostokątów
-│   ├── templates/index.html
-│   └── static/ (style.css, app.js)
-├── przyklady/              ← przykładowe dokumenty do testów
-└── tests/                  ← testy + generatory przykładów
+```bat
+.venv\Scripts\python.exe -m app.shortcut
 ```
 
-## 🔒 Prywatność
+### OCR (opcjonalne)
 
-Aplikacja nie ma żadnego połączenia z internetem w czasie pracy — serwer nasłuchuje wyłącznie lokalnie (`127.0.0.1`), a pliki pozostają na dysku użytkownika.
+Instalator oferuje Tesseract OCR. Do polskich skanów wymagany jest również
+`pol.traineddata` w katalogu `tessdata` instalacji Tesseracta. Plik językowy
+należy zainstalować z oficjalnego projektu Tesseract (`tesseract-ocr/tessdata`)
+lub instalatora zawierającego polski pakiet. OCR wykrywa też typowy katalog
+`C:\Program Files\Tesseract-OCR`, nawet jeśli nie ma go w PATH.
+Brak OCR **nie blokuje edycji tekstowych PDF**. Brak języka jest zgłaszany w oknie.
 
-## ⚠️ Ograniczenia techniczne (uczciwie)
+## Ekran startowy i szablony PDF
 
-- PDF-y **zaszyfrowane hasłem** nie są obsługiwane.
-- Podmiana działa na **warstwie tekstowej**; w skanach z bardzo złej jakości OCR warto zweryfikować wynik podglądem.
-- Bardzo ozdobne/nietypowe fonty komercyjne są zastępowane najbliższym odpowiednikiem (rdzeń dokumentu pozostaje nietknięty).
-- Tekst obrócony (nie poziomy) jest pomijany dla bezpieczeństwa układu.
+Po uruchomieniu zobaczysz **Start / Szablony**: ciemny, prosty układ inspirowany
+aplikacjami Adobe — panel boczny z akcjami i lista lokalnych dokumentów.
+Nie wymaga konta, chmury ani przeglądarki.
+
+- Wkładaj PDF-y do folderu **`templates/`** obok `uruchom.bat`. Podfoldery
+  i rozszerzenie `.PDF` też są obsługiwane. Lista pojawia się od razu przy starcie.
+- **Otwórz folder** otwiera lokalny menedżer plików. Po powrocie do okna
+  aplikacji lista się odświeża; dostępny jest również przycisk **Odśwież**.
+- **Dodaj szablony…** kopiuje wybrane pliki do biblioteki. Istniejące nazwy
+  nie są nadpisywane: nowe kopie otrzymują `(2)`, `(3)` itd.
+- Wyszukaj nazwę, zaznacz plik i wybierz **Użyj szablonu** lub kliknij dwukrotnie.
+  Edytujesz kopię roboczą, nie plik wzoru.
+- **Utwórz PDF…** (`Ctrl+N`) otwiera kreator: nazwa, A4/A5/Letter,
+  pion/poziom, 1–100 stron oraz opcjonalny nagłówek i tekst pierwszej strony.
+  PDF zostaje zapisany w bibliotece i otwarty do pracy. Puste pola tworzą pusty
+  dokument. Jest to prosty kreator, a nie pełny edytor układu stron jak Acrobat;
+  treść nie przepływa automatycznie na kolejne strony. Zbyt długi tekst zgłasza błąd.
+- **Narzędzia → Zapisz jako szablon…** dodaje bieżący dokument do biblioteki.
+  Jeśli zmieniono wartości, najpierw użyj „Zastosuj i sprawdź”.
+- **Start / Szablony** (`Alt+Home`) nie zamyka dokumentu ani nie usuwa zmian.
+  **Wróć do dokumentu** przywraca edytor. Wybór innego pliku nadal pyta
+  o porzucenie niezapisanych zmian.
+
+Własne PDF-y w `templates/` są ignorowane przez Git. Usuwanie i przenoszenie
+szablonów odbywa się zwyczajnie w menedżerze plików. Szczegóły: `templates/README.md`.
+
+## Użycie
+
+1. **Otwórz PDF** (`Ctrl+O`) lub przeciągnij lokalny plik do okna.
+2. Po lewej jest podgląd. Kliknięcie ramki wybiera wartość do edycji po prawej.
+   Ramki i strona używają tej samej skali, również przy powiększaniu i obrocie strony.
+3. W tabeli edytuj kolumnę **Nowa wartość** albo użyj:
+   - **Losuj zaznaczone** — jeden lub kilka wierszy (`Ctrl+klik`),
+   - **Losuj widoczne** — tylko wiersze zgodne z filtrem i zakresem stron.
+     Odznacz „Tylko bieżąca strona”, aby uwzględnić cały dokument.
+4. **Zastosuj i sprawdź** generuje wynik z niezmienionej kopii źródła.
+   Przełączaj „Pokaż wynik”, aby porównać. Na wyniku ramki oryginału są celowo
+   ukryte: zmieniony tekst może mieć inną szerokość.
+5. **Zapisz PDF jako…** (`Ctrl+Shift+S`) zapisuje oddzielny plik na dysku.
+   Oryginału nie można nadpisać. Po kolejnej edycji trzeba ponownie zastosować zmiany.
+
+**Cofnij / Ponów** (`Ctrl+Z` / `Ctrl+Y`) obejmuje ręczne wpisy, import mapowania,
+losowanie i wyczyszczenie zmian. Kliknięcie „Wyczyść zmiany” też można cofnąć.
+Powiększenie: `+`, `−`, `Ctrl+kółko myszy`; „Dopasuj” przywraca dopasowanie strony.
+
+### Narzędzia
+
+- Opcje podmiany: minimalny rozmiar pisma, wykorzystanie wolnego miejsca,
+  czcionki osadzone i wypełnienie tła.
+- Daty zapisywanego pliku: metadane PDF i czas modyfikacji; systemowa data
+  utworzenia jest obsługiwana na Windows. Ustawienia dotyczą **eksportu**,
+  nigdy źródłowego pliku. Aby zapisać samą zmianę dat, można zastosować dokument
+  bez zmian tekstu, a następnie zapisać kopię.
+- Eksport CSV/JSON, zapis i wczytywanie mapowania zmian.
+- Tryb wsadowy: mapowanie + wiele plików + folder wyników. Istniejące wyniki
+  nie są nadpisywane — dodawany jest licznik w nazwie. Dopasowanie po starej
+  wartości ma pierwszeństwo przed etykietą, aby nie zmieniać innej kwoty
+  tylko dlatego, że ma podobny opis.
+- Raport ostatnich podmian: pokazuje zmniejszenie pisma i pominięte wartości.
+
+## Losowanie i bezpieczeństwo danych
+
+Losowanie odbywa się lokalnie, bez usług zewnętrznych. Obsługuje daty, osoby,
+kwoty, numery i połączone identyfikatory, np. `AB12CD34`, `abc12DEF34`, `FV/2024/01/15`.
+Zachowuje schemat liter/cyfr i separatorów w symbolach. PESEL ma poprawną datę
+oraz sumę kontrolną; NIP, REGON i polski numer konta mają odpowiednie cyfry kontrolne.
+W ramach jednej operacji jednakowe wartości są zastępowane jednakowo;
+różne zapisy tej samej daty dostają spójną nową datę.
+
+**To dane syntetyczne, nie gwarantowana anonimizacja.** Wygenerowany numer może
+przypadkowo pokrywać się z rzeczywistym. Losowanie nie gwarantuje zachowania
+zależności biznesowych (np. suma kwot, VAT, zgodność daty z PESEL).
+Niewykryte dane, obrazy, załączniki, formularze i metadane mogą nadal zawierać
+informacje poufne. Sprawdź cały dokument przed udostępnieniem.
+
+Aplikacja pracuje na kopii w prywatnym katalogu tymczasowym `proximal-*`.
+Katalog jest usuwany po zamknięciu dokumentu/aplikacji; po awarii procesu
+może pozostać w systemowym katalogu plików tymczasowych. Nie jest to bezpieczne
+wymazywanie danych z dysku. Stary folder `praca/` nie jest już używany.
+
+## Ograniczenia
+
+- Wykrywanie jest heurystyczne: nie każdy tekst zostanie wykryty jako dane.
+- Zabezpieczone hasłem PDF-y są odrzucane z komunikatem.
+- Tekst obrócony wewnątrz strony jest pomijany; obrót całej strony jest obsługiwany.
+- OCR wymaga kontroli — pozycje znaków wewnątrz słów są przybliżone, a tekst
+  na obrazie nie zachowa identycznej czcionki.
+- Jeśli nowy tekst nie mieści się przy minimalnej czcionce, podmiana jest
+  **pomijana**, a oryginał pozostaje. Sprawdź raport, zwłaszcza po losowaniu.
+- Nietypowe czcionki mogą wymagać zamiennika. Edycja unieważnia podpisy cyfrowe PDF.
+- Nie jest to edytor pełnego układu dokumentu ani narzędzie do weryfikowania autentyczności.
+
+## Linux / macOS
+
+Wymagany jest lokalny pulpit graficzny i biblioteki systemowe Qt.
+
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python uruchom.py
+```
+
+Na Debianie/Ubuntu typowe zależności to `libgl1`, `libegl1`, `libxkbcommon0`,
+`libdbus-1-3`, `libxcb-cursor0`, `libxkbcommon-x11-0`, `libxcb-icccm4`,
+`libxcb-keysyms1`, `libxcb-shape0`, `libxcb-xinerama0` i `libxcb-randr0`.
+Skrót Windows nie jest tworzony na tych platformach.
+
+## Testy i struktura
+
+```sh
+python -m pip install pytest
+python tests/test_suite.py
+python -m pytest -q
+```
+
+Wyniki i granice weryfikacji: [TESTY.md](TESTY.md).
+Testy Qt używają `QT_QPA_PLATFORM=offscreen`, ale nadal potrzebują systemowych
+bibliotek graficznych. Workflow `.github/workflows/tests.yml` przewiduje
+Linux i Windows; jego dodanie nie oznacza, że został już wykonany w GitHub Actions.
+
+- `app/home.py` — ekran startowy, wybór szablonu i kreator PDF;
+- `app/core/templates.py` — lokalna biblioteka i tworzenie/import szablonów;
+- `app/desktop.py` — natywne okno, tabela, podgląd i operacje w tle;
+- `app/core/document.py` — kopia robocza, cofanie, wynik i bezpieczny eksport;
+- `app/core/analyzer.py` — wykrywanie i rzeczywista geometria znaków;
+- `app/core/randomize.py` — losowanie danych lokalnie;
+- pozostałe `app/core/` — podmiana, czcionki, daty, OCR, mapowania, raporty;
+- `app/shortcut.py` — konwersja PNG do ICO i skrót Windows;
+- `app/webapp.py` — wyłącznie kompatybilny alias do startu desktopowego, bez serwera.
+
+Jeżeli start przez `pythonw` się nie powiedzie, szczegóły są w
+`%LOCALAPPDATA%\PrOximAl\startup-error.log` (Windows) lub `~/PrOximAl/` (Linux/macOS).

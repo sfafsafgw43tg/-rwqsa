@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
-"""KAMELEON PDF — pełny test regresyjny. Uruchom: python3 tests/test_suite.py"""
+"""PrOximAl edit — pełny test regresyjny. Uruchom: python3 tests/test_suite.py"""
 import sys, os, shutil, datetime as dt
+import tempfile
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(ROOT)
+_TEMP = tempfile.TemporaryDirectory(prefix="proximal-tests-")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pymupdf
@@ -14,7 +18,7 @@ def check(name, cond, extra=""):
     print(("  ✅ " if cond else "  ❌ ") + name + (f"  ({extra})" if extra else ""))
 
 print("=" * 60)
-print("TESTY KAMELEON PDF")
+print("TESTY PrOximAl edit")
 print("=" * 60)
 
 # ---------------------------------------------------------------- daty
@@ -72,13 +76,13 @@ mapping = {"Jan Kowalski": "Piotr Zadrożny-Lewandowski", "15.01.2024": "10.03.2
            "7 921,20 zł": "15 999,99 zł", "61 1090 1014 0000 0712 1981 2874": "75 2490 0005 0000 4600 7430 1234",
            "FV/2024/01/15": "FV/2026/03/99-A"}
 jobs = [(it, mapping[it.value]) for it in items_f if it.value in mapping]
-reps = replacer.apply_replacements("przyklady/przyklad_faktura.pdf", "/tmp/t_out.pdf", jobs, ReplaceOptions())
+reps = replacer.apply_replacements("przyklady/przyklad_faktura.pdf", os.path.join(_TEMP.name, "t_out.pdf"), jobs, ReplaceOptions())
 check("wszystkie podmiany OK", all(r["status"].startswith("ok") for r in reps), f"{len(reps)} operacji")
-doc = pymupdf.open("/tmp/t_out.pdf"); t = doc[0].get_text(); doc.close()
+doc = pymupdf.open(os.path.join(_TEMP.name, "t_out.pdf")); t = doc[0].get_text(); doc.close()
 check("stare usunięte", not any(o in t for o in mapping))
 check("nowe obecne", all(n in t for n in mapping.values()))
 # geometrycznie: brak kolizji
-items2, _ = analyzer.analyze_document("/tmp/t_out.pdf")
+items2, _ = analyzer.analyze_document(os.path.join(_TEMP.name, "t_out.pdf"))
 col = 0
 for a in items2:
     for b in items2:
@@ -90,22 +94,22 @@ check("geometrycznie brak nakładania", col == 0, f"kolizje: {col}")
 
 # ---------------------------------------------------------------- daty pliku
 print("\n[6] Daty pliku i metadane")
-shutil.copy("/tmp/t_out.pdf", "/tmp/t_dates.pdf")
-filedates.set_file_times("/tmp/t_dates.pdf", modified=dt.datetime(2024, 1, 5, 12, 0))
-st = filedates.get_file_times("/tmp/t_dates.pdf")
+shutil.copy(os.path.join(_TEMP.name, "t_out.pdf"), os.path.join(_TEMP.name, "t_dates.pdf"))
+filedates.set_file_times(os.path.join(_TEMP.name, "t_dates.pdf"), modified=dt.datetime(2024, 1, 5, 12, 0))
+st = filedates.get_file_times(os.path.join(_TEMP.name, "t_dates.pdf"))
 check("mtime zmienione", st["modified"].strftime("%Y%m%d%H") == "2024010512")
-filedates.set_pdf_dates("/tmp/t_dates.pdf", creation=dt.datetime(2019, 6, 1, 8, 30))
-meta = filedates.get_pdf_metadata("/tmp/t_dates.pdf")
+filedates.set_pdf_dates(os.path.join(_TEMP.name, "t_dates.pdf"), creation=dt.datetime(2019, 6, 1, 8, 30))
+meta = filedates.get_pdf_metadata(os.path.join(_TEMP.name, "t_dates.pdf"))
 check("PDF CreationDate", "2019" in (meta.get("creationDate") or ""), meta.get("creationDate", ""))
 
 # ---------------------------------------------------------------- raporty
 print("\n[7] Eksporty")
 from app.core import report as report_mod
-report_mod.export_report("/tmp/rep.csv", items_f, reps)
-check("CSV zapisany", os.path.getsize("/tmp/rep.csv") > 500)
-report_mod.export_mapping("/tmp/map.json", items_f)
+report_mod.export_report(os.path.join(_TEMP.name, "rep.csv"), items_f, reps)
+check("CSV zapisany", os.path.getsize(os.path.join(_TEMP.name, "rep.csv")) > 500)
+report_mod.export_mapping(os.path.join(_TEMP.name, "map.json"), items_f)
 import json
-check("mapowanie JSON", len(json.load(open("/tmp/map.json", encoding="utf-8-sig"))) >= 0)
+check("mapowanie JSON", len(json.load(open(os.path.join(_TEMP.name, "map.json"), encoding="utf-8-sig"))) >= 0)
 
 # ---------------------------------------------------------------- OCR (opcjonalny)
 print("\n[8] OCR (jeśli Tesseract dostępny)")
@@ -115,7 +119,9 @@ if ocrmod.tesseract_available():
     pix = src[0].get_pixmap(dpi=200)
     scan = pymupdf.open(); page = scan.new_page(width=595, height=842)
     page.insert_image(page.rect, pixmap=pix)
-    words = ocrmod.ocr_words_with_geometry(page)
+    import pytesseract
+    lang = "pol" if "pol" in pytesseract.get_languages() else "eng"
+    words = ocrmod.ocr_words_with_geometry(page, lang=lang)
     check("OCR słowa", len(words) > 40, f"{len(words)} słów")
     lines = [{"text": "PESEL: 85010112345 ", "bbox": (40, 160, 160, 175),
               "spans": [analyzer.SpanInfo("PESEL: 85010112345 ", (40, 160, 160, 175), (40, 172), "Helvetica", 10, 0, 0)],

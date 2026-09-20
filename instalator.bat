@@ -1,102 +1,65 @@
 @echo off
 chcp 65001 >nul
-setlocal EnableDelayedExpansion
-title KAMELEON PDF — Instalator (100%% offline)
-cls
-echo.
-echo  ============================================================
-echo    KAMELEON PDF — INSTALATOR
-echo    Profesjonalna zamiana danych w PDF (imiona, numery, daty)
-echo    Ten instalator wymaga internetu TYLKO do pobrania narzędzi.
-echo    sama APLIKACJA dziala pozniej w 100%% offline.
-echo  ============================================================
-echo.
-
+setlocal EnableExtensions
+title PrOximAl edit - instalator
 cd /d "%~dp0"
-
-:: ---------- 1. Sprawdzenie Pythona ----------
-echo  [1/5] Sprawdzanie Pythona...
+echo.
+echo PrOximAl edit - aplikacja komputerowa, bez przegladarki.
+echo Internet jest potrzebny do instalacji, nie do pracy.
+echo.
 set "PYEXE="
-python --version >nul 2>&1 && set "PYEXE=python"
-if not defined PYEXE py --version >nul 2>&1 && set "PYEXE=py"
-if defined PYEXE (
-    for /f "tokens=*" %%i in ('%PYEXE% --version 2^>^&1') do echo        znaleziono: %%i
-    goto :have_python
+py -3.12 --version >nul 2>&1 && set "PYEXE=py -3.12"
+if not defined PYEXE (
+    python --version >nul 2>&1 && set "PYEXE=python"
 )
-echo        Nie znaleziono Pythona. Probujem zainstalowac przez winget...
+if not defined PYEXE (
+    py --version >nul 2>&1 && set "PYEXE=py"
+)
+if defined PYEXE goto python_ready
+echo Instalowanie Python 3.12...
 winget install -e --id Python.Python.3.12 --silent --accept-package-agreements --accept-source-agreements
+if errorlevel 1 goto error
+set "PYEXE=py -3.12"
+%PYEXE% --version >nul 2>&1
 if errorlevel 1 (
-    echo.
-    echo  NIE UDALO SIE ZAINSTALOWAC PYTHONA AUTOMATYCZNIE.
-    echo  Pobierz recznie: https://www.python.org/downloads/
-    echo  WAZNE: zaznacz przy instalacji "Add Python to PATH".
-    echo.
+    echo Python zainstalowany. Zamknij okno i uruchom instalator ponownie.
     pause
     exit /b 1
 )
-:: odswiezenie PATH po instalacji
-set "PYEXE=py"
-echo        Python zainstalowany.
-:have_python
-echo.
-
-:: ---------- 2. Biblioteki Pythona ----------
-echo  [2/5] Instalacja bibliotek (PyMuPDF, Flask, Pillow, pytesseract)...
-%PYEXE% -m pip install --upgrade pip --quiet
-%PYEXE% -m pip install -r requirements.txt
+:python_ready
+%PYEXE% -c "import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)"
 if errorlevel 1 (
-    echo  Blad instalacji bibliotek. Sprawdz polaczenie z internetem i uruchom ponownie.
-    pause
-    exit /b 1
+    echo Wymagany Python 3.10 lub nowszy. Zalecany 3.12.
+    goto error
 )
-echo        Biblioteki OK.
-echo.
-
-:: ---------- 3. Tesseract OCR (opcjonalne, dla zeskanowanych PDF) ----------
-echo  [3/5] Tesseract OCR (do zeskanowanych dokumentow)...
-set "TESS_OK=0"
-if exist "%ProgramFiles%\Tesseract-OCR\tesseract.exe" set "TESS_OK=1"
-if exist "%ProgramFiles(x86)%\Tesseract-OCR\tesseract.exe" set "TESS_OK=1"
-if "!TESS_OK!"=="1" (
-    echo        Tesseract juz zainstalowany — pomijam.
-) else (
-    set /p "INSTALL_TESS=       Zainstalowac Tesseract OCR? [T/n]: "
-    if /i not "!INSTALL_TESS!"=="n" (
-        winget install -e --id UB-Mannheim.TesseractOCR --silent --accept-package-agreements --accept-source-agreements
-        if errorlevel 1 (
-            echo        Winget nie zadzialal — probuje pobrac instalator bezposrednio...
-            powershell -Command "try { Invoke-WebRequest -Uri 'https://github.com/UB-Mannheim/tesseract/releases/download/v5.4.0.20240606/tesseract-ocr-w64-setup-5.4.0.20240606.exe' -OutFile '$env:TEMP\tesseract_setup.exe'; Start-Process \"$env:TEMP\tesseract_setup.exe\" /S -Wait } catch { exit 1 }"
-            if errorlevel 1 (
-                echo        Nie udalo sie. OCR mozna doinstalowac pozniej.
-            ) else (
-                echo        Tesseract zainstalowany.
-            )
-        ) else (
-            echo        Tesseract zainstalowany.
-        )
-    )
-)
-echo.
-
-:: ---------- 4. Weryfikacja ----------
-echo  [4/5] Weryfikacja instalacji...
-%PYEXE% -c "import pymupdf, flask, PIL; print('       PyMuPDF', pymupdf.__version__.split(':')[1] if ':' in pymupdf.__version__ else 'OK', '| Flask OK | Pillow OK')" 2>nul
+echo [1/4] Osobne srodowisko aplikacji...
+if not exist ".venv\Scripts\python.exe" %PYEXE% -m venv .venv
+if errorlevel 1 goto error
+echo [2/4] Biblioteki...
+".venv\Scripts\python.exe" -m pip install -r requirements.txt
+if errorlevel 1 goto error
+".venv\Scripts\python.exe" -c "import pymupdf, PIL, pytesseract; from PySide6.QtWidgets import QApplication"
+if errorlevel 1 goto error
+echo [3/4] OCR - opcjonalnie...
+choice /C TN /N /M "Zainstalowac Tesseract OCR do skanow? [T/N]: "
+if errorlevel 2 goto shortcut
+winget install -e --id UB-Mannheim.TesseractOCR --accept-package-agreements --accept-source-agreements
+if errorlevel 1 echo OCR nie zostal zainstalowany. Edycja tekstowych PDF nadal dziala.
+echo Jezyk polski wymaga pol.traineddata w folderze tessdata Tesseracta.
+:shortcut
+echo [4/4] Ikona i skrot PrOximAl na pulpicie...
+".venv\Scripts\python.exe" -m app.shortcut
 if errorlevel 1 (
-    echo  Weryfikacja NIEPOWODZENIE — uruchom instalator ponownie.
-    pause
-    exit /b 1
+    echo Nie udalo sie utworzyc skrotu. Mozesz uzyc uruchom.bat.
+    goto error
 )
-echo        Wszystko gotowe!
 echo.
-
-:: ---------- 5. Skroty ----------
-echo  [5/5] Tworzenie skrotu na pulpicie...
-powershell -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\Kameleon PDF.lnk'); $s.TargetPath = '%~dp0uruchom.bat'; $s.WorkingDirectory = '%~dp0'; $s.IconLocation = '%SystemRoot%\System32\SHELL32.dll,220'; $s.Save()" 2>nul
-echo        Skrot "Kameleon PDF" na pulpicie.
-echo.
-echo  ============================================================
-echo    INSTALACJA ZAKONCZONA!
-echo    Uruchom aplikacje plikiem:  uruchom.bat
-echo  ============================================================
-echo.
+echo Gotowe. Uruchom PrOximAl ze skrotu lub pliku uruchom.bat.
+echo Pliki csssanvas.png lub 1.png w folderze aplikacji nadpisuja ikone zastepcza.
 pause
+exit /b 0
+:error
+echo.
+echo Instalacja nie zostala zakonczona. Sprawdz komunikat powyzej.
+pause
+exit /b 1

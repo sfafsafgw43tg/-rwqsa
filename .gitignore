@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+praca/
+*.log
+.cache/
+app/assets/proximal.ico
+.ruff_cache/
+# Private PDF templates (also in subdirectories).
+templates/**/*.[pP][dD][fF]

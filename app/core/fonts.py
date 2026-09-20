@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-KAMELEON PDF — silnik dopasowania czcionek.
+PrOximAl edit — silnik dopasowania czcionek.
 Dobiera najlepszy możliwy font (TTF z systemu / wbudowany base-14)
 do czcionki użytej w oryginalnym dokumencie PDF, zachowując styl
 (rodzina, bold, italic, monospace, szeryfowa).
@@ -186,6 +186,8 @@ def resolve_font(raw_font_name: str, flags: int = 0) -> dict:
     font (pymupdf.Font), source: 'system'|'builtin'|'fallback'}
     """
     family, bold, italic = normalize_font_name(raw_font_name)
+    bold = bold or bool(flags & 16)
+    italic = italic or bool(flags & 2)
     known = family in FILE_CANDIDATES
     if not known:
         # spróbuj po flagach PDF (bit 2 = szeryfowa, bit 3 = mono, bit 4 = bold, bit 1 = italic)
@@ -223,7 +225,7 @@ def font_from_buffer(buffer: bytes) -> dict | None:
     """Próba użycia osadzonej (wyekstrahowanej) czcionki 1:1."""
     try:
         f = pymupdf.Font(fontbuffer=buffer)
-        return {"family": f.name, "bold": bool(f.flags & 16), "italic": bool(f.flags & 2),
+        return {"family": f.name, "bold": bool(f.flags.get("bold")), "italic": bool(f.flags.get("italic")),
                 "fontfile": None, "builtin": None, "font": f, "source": "embedded",
                 "buffer": buffer}
     except Exception:
@@ -250,4 +252,4 @@ def fit_size(fontobj: "pymupdf.Font", text: str, start_size: float,
             lo = mid
         else:
             hi = mid
-    return round(lo, 2), True
+    return int(lo * 100) / 100, True

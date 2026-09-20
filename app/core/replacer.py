@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-KAMELEON PDF — silnik podmiany tekstu.
+PrOximAl edit — silnik podmiany tekstu.
 Metoda (zgodna z zaleceniami twórców PyMuPDF):
   1. pobierz pełne metadane oryginalnego fragmentu (czcionka, rozmiar, kolor, origin),
   2. spróbuj ponownie użyć czcionki osadzonej w PDF (1:1), w przeciwnym razie
@@ -78,18 +78,22 @@ def _try_embedded(page, span, new_text) -> dict | None:
 def free_space_right(page, rect) -> float:
     """Ile wolnego miejsca jest na prawo od prostokąta (do najbliższego elementu w tej samej linii)."""
     try:
-        limit = page.rect.x1 - 2
-        for w in page.get_text("words"):
-            wx0, wy0, wx1, wy1 = w[:4]
-            if wx1 <= rect[0] or wx0 < rect[2] - 1:      # zaczyna się na prawo od naszego końca
-                continue
-            if wy1 < rect[1] + 1 or wy0 > rect[3] - 1:   # inna linia pionowa
-                continue
-            if wx0 > rect[2] - 1:
-                limit = min(limit, wx0 - 2)
+        # Glyphs rather than words: in "AB12;next" the separator and the
+        # following letters belong to the same PDF word as the edited value.
+        from .analyzer import extract_lines
+        limit = page.cropbox.width - 2
+        for line in extract_lines(page):
+            for span in line["spans"]:
+                for ch, box in zip(span.text, span.char_rects):
+                    x0, y0, x1, y1 = box
+                    if ch.isspace() or y1 <= rect[1] or y0 >= rect[3]:
+                        continue
+                    if x0 >= rect[2] - .05:
+                        limit = min(limit, x0 - .3)
         return max(0.0, limit - rect[2])
     except Exception:
         return 0.0
+
 
 
 class ReplaceOptions:
@@ -135,7 +139,7 @@ def replace_item(page, item: Item, new_value: str, opts: ReplaceOptions) -> dict
     host = pieces[0]
     union = pymupdf.Rect(item.rect)
     # miejsce dostępne dla nowego tekstu: stary obszar (+ ewentualnie wolna przestrzeń na prawo)
-    max_width = union.width + 1.5
+    max_width = union.width
     if opts.allow_expand:
         free = free_space_right(page, tuple(union))
         max_width += min(free, 0.60 * union.width + 12)
@@ -144,6 +148,12 @@ def replace_item(page, item: Item, new_value: str, opts: ReplaceOptions) -> dict
     fobj = finfo["font"]
     old_size = host.span.size
     size, shrunk = fontmod.fit_size(fobj, new_value, old_size, max_width, opts.min_font_size)
+    if fontmod.text_width(fobj, new_value, size) > max_width + 0.01:
+        rep["status"] = "pominięto: tekst nie mieści się przy minimalnej czcionce"
+        return rep
+    if any(c in new_value for c in "\r\n\t"):
+        rep["status"] = "pominięto: wartość musi być w jednym wierszu"
+        return rep
     if shrunk:
         rep["shrunk"] = True
         rep["status"] = "ok (zmniejszono czcionkę)"
@@ -177,7 +187,7 @@ def replace_item(page, item: Item, new_value: str, opts: ReplaceOptions) -> dict
             r.x0 += 0.2; r.x1 -= 0.2
         r = r & page.rect
         if not r.is_empty:
-            page.add_redact_annot(r, fill=fill if fill else (1, 1, 1))
+            page.add_redact_annot(r, fill=fill)
     img_mode = (pymupdf.PDF_REDACT_IMAGE_PIXELS
                 if getattr(item, "source", "text") == "ocr"
                 else pymupdf.PDF_REDACT_IMAGE_NONE)
@@ -199,11 +209,11 @@ def replace_item(page, item: Item, new_value: str, opts: ReplaceOptions) -> dict
     fontname_kwargs = {}
     alias = None
     if finfo.get("buffer") is not None:
-        alias = f"KAM{abs(hash((item.id, 'e'))) % 10000}"
+        alias = f"PROX{item.id}e"
         page.insert_font(fontname=alias, fontbuffer=finfo["buffer"])
         fontname_kwargs = {"fontname": alias}
     elif finfo.get("fontfile"):
-        alias = f"KAM{abs(hash((item.id, 's'))) % 10000}"
+        alias = f"PROX{item.id}s"
         page.insert_font(fontname=alias, fontfile=finfo["fontfile"])
         fontname_kwargs = {"fontname": alias}
     else:
@@ -228,27 +238,40 @@ def replace_item(page, item: Item, new_value: str, opts: ReplaceOptions) -> dict
 def apply_replacements(src_path: str, out_path: str, jobs: list[tuple[Item, str]],
                        opts: ReplaceOptions | None = None, progress=None) -> list[dict]:
     """Otwiera dokument, stosuje wszystkie podmiany, zapisuje do out_path."""
+    if os.path.realpath(src_path) == os.path.realpath(out_path):
+        raise ValueError("Wynik musi być innym plikiem niż oryginał.")
     opts = opts or ReplaceOptions()
     doc = pymupdf.open(src_path)
-    reports = []
-    # grupuj po stronach
-    by_page: dict[int, list[tuple[Item, str]]] = {}
-    for it, nv in jobs:
-        by_page.setdefault(it.page, []).append((it, nv))
-    for pno in sorted(by_page.keys()):
-        page = doc[pno]
-        for it, nv in by_page[pno]:
-            reports.append(replace_item(page, it, nv, opts))
-            if progress:
-                progress(len(reports), len(jobs))
-    # porządkowanie: subset czcionek + zapis
     try:
-        doc.subset_fonts()
-    except Exception:
-        pass
-    if out_path.lower().endswith(".pdf"):
-        doc.save(out_path, garbage=3, deflate=True)
-    else:
-        doc.save(out_path)
-    doc.close()
-    return reports
+        reports = []
+        # grupuj po stronach
+        by_page: dict[int, list[tuple[Item, str]]] = {}
+        for it, nv in jobs:
+            by_page.setdefault(it.page, []).append((it, nv))
+        for pno in sorted(by_page.keys()):
+            page = doc[pno]
+            for it, nv in by_page[pno]:
+                reports.append(replace_item(page, it, nv, opts))
+                if progress:
+                    progress(len(reports), len(jobs))
+        # porządkowanie: subset czcionek + zapis
+        try:
+            doc.subset_fonts()
+        except Exception:
+            pass
+        folder = os.path.dirname(os.path.abspath(out_path))
+        fd, temporary = tempfile.mkstemp(suffix=".pdf", dir=folder)
+        os.close(fd)
+        try:
+            doc.save(temporary, garbage=3, deflate=True)
+            doc.close()
+            os.replace(temporary, out_path)
+        finally:
+            if not doc.is_closed:
+                doc.close()
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+        return reports
+    finally:
+        if not doc.is_closed:
+            doc.close()

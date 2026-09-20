@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-KAMELEON PDF — analizator dokumentu.
+PrOximAl edit — analizator dokumentu.
 Z linii tekstu PDF (z dokładnym położeniem, czcionką, kolorem) wykrywa:
   • imiona i nazwiska (heurystyka + etykiety),
   • wszystkie numery (kwoty, PESEL, NIP, REGON, telefony, konta, numery faktur...),
@@ -31,6 +31,7 @@ class SpanInfo:
     color: int
     flags: int
     xref: int | None = None
+    char_rects: list[tuple] = field(default_factory=list)
 
 @dataclass
 class Piece:
@@ -104,6 +105,7 @@ RE_GROSZ   = re.compile(r"\b\d{1,2}/100\b")   # grosze słownie: "00/100"
 RE_PHONE   = re.compile(r"(?:\+\d{2}[ \-]?)?(?:\d[ \-]?){8,11}\d")
 RE_PERCENT = re.compile(r"(?<![\d.,])(\d{1,3}(?:[.,]\d{1,2})?)\s?%(?!\d)")
 RE_NUMGEN  = re.compile(r"(?<![\d.,])(\d{1,3}(?:[ \u00a0]\d{3})+|\d+)(?:[.,](\d{1,3}))?(?![\d.,])")
+RE_MIXED = re.compile(r"(?<!\w)(?=[\w/-]*[^\W\d_])(?=[\w/-]*\d)[^\W_]+(?:[-/][^\W_]+)*(?!\w)", re.UNICODE)
 RE_SYMBOL  = re.compile(r"(?<![A-Za-z\d/])([A-Z][A-Z0-9]{0,8}(?:[-/][A-Z0-9]{1,8}){1,5})(?![A-Za-z\d/])")
 
 STREET_PREFIXES = ("ul.", "al.", "os.", "pl.", "ulica", "aleja", "aleje", "plac", "osiedle", "ul ", "al ")
@@ -143,7 +145,7 @@ def _classify_number(label: str, token: str) -> tuple[str, float]:
         if "nip" in lab or "podatk" in lab:
             return "NIP", 0.97
         return ("NIP", 0.85) if nip_valid(digits) else ("numer", 0.35)
-    if len(digits) == 9 and digits.isdigit() and "regon" in lab:
+    if len(digits) in (9, 14) and digits.isdigit() and "regon" in lab:
         return "REGON", 0.95
     if len(digits) == 26 and digits.isdigit():
         return "nr konta", 0.95
@@ -151,7 +153,7 @@ def _classify_number(label: str, token: str) -> tuple[str, float]:
         return "PESEL", 0.98
     if "nip" in lab and len(digits) in (10, 13):
         return "NIP", 0.95
-    if "regon" in lab and len(digits) == 9:
+    if "regon" in lab and len(digits) in (9, 14):
         return "REGON", 0.95
     if any(k in lab for k in ("kont", "tel", "komórk", "komork", "faks", "mobil")):
         if 9 <= len(digits) <= 13:
@@ -225,7 +227,7 @@ def extract_lines(page: "pymupdf.Page") -> list[dict]:
             font_xrefs[basefont] = xref
     except Exception:
         pass
-    raw = page.get_text("dict", flags=pymupdf.TEXTFLAGS_DICT)
+    raw = page.get_text("rawdict", flags=pymupdf.TEXTFLAGS_RAWDICT & ~pymupdf.TEXT_PRESERVE_IMAGES)
     lines = []
     for block in raw.get("blocks", []):
         if block.get("type") != 0:
@@ -233,11 +235,11 @@ def extract_lines(page: "pymupdf.Page") -> list[dict]:
         for ln in block.get("lines", []):
             spans = []
             for sp in ln.get("spans", []):
-                if not sp["text"].strip():
-                    continue
-                spans.append(SpanInfo(text=sp["text"], bbox=tuple(sp["bbox"]), origin=tuple(sp["origin"]),
+                text = "".join(c["c"] for c in sp["chars"])
+                spans.append(SpanInfo(text=text, bbox=tuple(sp["bbox"]), origin=tuple(sp["origin"]),
                                       font=sp["font"], size=sp["size"], color=sp["color"],
-                                      flags=sp.get("flags", 0), xref=font_xrefs.get(sp["font"])))
+                                      flags=sp.get("flags", 0), xref=font_xrefs.get(sp["font"]),
+                                      char_rects=[tuple(c["bbox"]) for c in sp["chars"]]))
             if not spans:
                 continue
             lines.append({"text": "".join(s.text for s in spans), "bbox": tuple(ln["bbox"]),
@@ -299,6 +301,12 @@ def _sub_pieces(line: dict, start: int, end: int, resolver) -> list[Piece]:
         if s1 <= s0:
             continue
         frag = sp.text[s0:s1]
+        if sp.char_rects:
+            boxes = sp.char_rects[s0:s1]
+            rect = (min(r[0] for r in boxes), min(r[1] for r in boxes),
+                    max(r[2] for r in boxes), max(r[3] for r in boxes))
+            pieces.append(Piece(span=sp, text=frag, rect=rect))
+            continue
         fobj = resolver(sp)
         try:
             x_off = fobj.text_length(sp.text[:s0], fontsize=sp.size)
@@ -379,12 +387,20 @@ def analyze_lines(lines: list[dict], resolver=None, page_no=0, ocr: bool = False
 
             # ---- 0) grosze słownie (NN/100) — rezerwa
             for m in RE_GROSZ.finditer(text):
-                taken.append((ri, m.start(), m.end()))
+                taken.append((ri, pi, m.start(), m.end()))
+
+            # Alphanumeric identifiers are indivisible, including lower-case letters.
+            for m in RE_MIXED.finditer(text):
+                token = m.group()
+                labelled = re.match(r"(?i)^(PESEL|NIP|REGON|telefon|tel)(?=\d)", token)
+                unit = re.fullmatch(r"\d+(?:zł|zl|PLN|EUR|USD|CHF|GBP|kg|cm|mm|m)", token, re.I)
+                if not labelled and not unit:
+                    add(ri, line, m.start(), m.end(), "symbol", lab(m.start()), 0.8, pi=pi)
 
             # ---- 1) daty
             for hit in find_dates(text):
                 add(ri, line, hit.start, hit.end, "data", lab(hit.start),
-                    0.95 if hit.kind in ("dmy", "ymd") else 0.85, hit=hit)
+                    0.95 if hit.kind in ("dmy", "ymd") else 0.85, hit=hit, pi=pi)
 
             # ---- 2) konta, PESEL, NIP, kody pocztowe
             for rx, typ in ((RE_ACCOUNT, "nr konta"), (RE_PESEL, "PESEL"),
@@ -411,8 +427,6 @@ def analyze_lines(lines: list[dict], resolver=None, page_no=0, ocr: bool = False
                 for m in rx.finditer(text):
                     token = m.group(0)
                     if not token.strip() or is_taken(ri, m.start(), m.end(), pi):
-                        continue
-                    if rx is RE_NUMGEN and len(re.sub(r"\D", "", token)) <= 2:
                         continue
                     if rx is RE_PHONE and len(re.sub(r"\D", "", token)) < 9:
                         continue
@@ -459,15 +473,23 @@ def analyze_page(page, resolver=None, page_no=0, ocr: bool = False) -> list[Item
 
 def analyze_document(path: str, progress=None):
     doc = pymupdf.open(path)
-    resolver = lambda sp: fontmod.resolve_font(sp.font, sp.flags)["font"]
-    all_items = []
-    pages_without_text = []
-    for i, page in enumerate(doc):
-        if not page.get_text("text").strip():
-            pages_without_text.append(i)
-            continue
-        all_items.extend(analyze_page(page, resolver, page_no=i))
-        if progress:
-            progress(i + 1, doc.page_count)
-    doc.close()
-    return all_items, pages_without_text
+    if doc.needs_pass:
+        doc.close()
+        raise ValueError("PDF jest zabezpieczony hasłem. Otwórz niezabezpieczoną kopię.")
+    if not doc.is_pdf or not doc.page_count:
+        doc.close()
+        raise ValueError("Plik nie jest poprawnym dokumentem PDF.")
+    try:
+        resolver = lambda sp: fontmod.resolve_font(sp.font, sp.flags)["font"]
+        all_items = []
+        pages_without_text = []
+        for i, page in enumerate(doc):
+            if not page.get_text("text").strip():
+                pages_without_text.append(i)
+                continue
+            all_items.extend(analyze_page(page, resolver, page_no=i))
+            if progress:
+                progress(i + 1, doc.page_count)
+        return all_items, pages_without_text
+    finally:
+        doc.close()

@@ -1,37 +1,44 @@
-════════════════════════════════════════════════════════
-  KAMELEON PDF — SZYBKA INSTRUKCJA
-════════════════════════════════════════════════════════
+PrOximAl edit — lokalna aplikacja komputerowa
 
-PIERWSZE URUCHOMIENIE (wymaga internetu tylko raz):
-  1. Kliknij dwukrotnie:  instalator.bat
-     (zainstaluje wszystko automatycznie — Python, biblioteki,
-      opcjonalnie OCR do skanów; potwierdzaj okna Windows)
-  2. Gotowe!
+PIERWSZY START (Windows 10/11, internet tylko do instalacji):
+1. Uruchom instalator.bat.
+2. Instalator utworzy skrót „PrOximAl” na pulpicie.
+3. Uruchom skrót lub uruchom.bat. NIE otwiera się przeglądarka.
 
-NORMALNE UŻYWANIE (w pełni offline):
-  1. Kliknij dwukrotnie:  uruchom.bat
-     → otworzy się przeglądarka z aplikacją
-  2. Przeciągnij plik PDF do okna
-  3. Po prawej zobaczysz wykryte: daty, imiona i nazwiska,
-     kwoty, PESEL, NIP, numery kont, telefony itd.
-     — każdy z opisem „za co odpowiada”
-  4. Wpisz nowe wartości w białe pola
-  5. Kliknij „Zastosuj zmiany” → „Pobierz zmieniony PDF”
+IKONA:
+Plików csssanvas.png i 1.png nie było w repozytorium.
+Do czasu ich dodania używana jest zastępcza ikona P.
+Wstaw csssanvas.png (alternatywnie 1.png) obok instalatora i uruchom
+instalator ponownie, aby odświeżyć ikonę okna oraz skrótu.
 
-DODATKOWE MOŻLIWOŚCI:
-  • 🗓 Daty pliku  — zmienia datę utworzenia/modyfikacji pliku
-                     i daty w metadanych PDF
-  • 🔍 OCR skanów  — wczytuje dokumenty zeskanowane (zdjęcia)
-  • 📚 Tryb wsadowy — wgraj wiele podobnych faktur/umów i zastosuj
-                      jedne zmiany do wszystkich naraz
-  • CSV / JSON / MAPA — eksport wykrytych danych i mapowania zmian
+SZABLONY / EKRAN STARTOWY:
+Po uruchomieniu zobaczysz listę PDF-ów z folderu templates.
+Wkładaj tam własne szablony (również w podfolderach) lub użyj „Dodaj szablony…”.
+„Otwórz folder” otwiera lokalny folder. „Odśwież” wczytuje listę ponownie.
+Dwuklik / „Użyj szablonu” otwiera kopię — oryginał wzoru nie jest zmieniany.
+„Utwórz PDF…” (Ctrl+N): format, orientacja, strony, opcjonalny nagłówek i tekst.
+Kreator zapisuje szablon i otwiera go w edytorze. Nie jest pełnym edytorem układu.
+Narzędzia → Zapisz jako szablon: dodanie bieżącego dokumentu do biblioteki.
+Start / Szablony (Alt+Home) oraz „Wróć do dokumentu” przełączają widoki
+bez utraty aktualnych zmian.
 
-WAŻNE:
-  • Nie zamykaj czarnego okna podczas pracy aplikacji
-    (możesz je zminimalizować).
-  • Wszystko dzieje się na Twoim komputerze — pliki NIE są
-    nigdzie wysyłane.
-  • Jeśli coś nie działa: uruchom ponownie instalator.bat.
+EDYCJA:
+1. Otwórz PDF lub przeciągnij go do okna.
+2. Kliknij ramkę albo edytuj kolumnę „Nowa wartość”.
+3. Możesz zaznaczyć wiersze i kliknąć „Losuj zaznaczone”.
+   „Losuj widoczne” uwzględnia aktualne filtry i zakres stron.
+4. „Zastosuj i sprawdź” — obejrzyj wynik i ewentualne pominięcia.
+5. „Zapisz PDF jako…” — zapisz kopię. Oryginał nie jest nadpisywany.
 
-Przykładowe pliki do testów znajdziesz w folderze „przyklady”.
-════════════════════════════════════════════════════════
+Ctrl+O: otwórz. Ctrl+Shift+S: zapisz jako.
+Ctrl+Z / Ctrl+Y: cofnij / ponów. Ctrl+kółko: powiększenie.
+
+Narzędzia: opcje pisma, daty eksportu, raport, CSV/JSON, mapowanie,
+tryb wsadowy. „OCR skanów” wymaga Tesseracta i wybranego języka.
+
+Wszystkie dokumenty są przetwarzane na Twoim komputerze.
+Losowanie NIE jest gwarantowaną anonimizacją. Sprawdź również
+niewykryte dane i metadane, a po podmianie przeczytaj raport.
+Za długi tekst może zostać pominięty z pozostawieniem oryginału.
+
+Dokładne wymagania, ograniczenia i wyniki testów: README.md i TESTY.md.
