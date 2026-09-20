@@ -76,7 +76,11 @@ def test_screenshot_address_in_two_columns():
                             ('miejscowość', 'WROCŁAW'): 2})
         assert Counter((it.type, it.value) for it in items) == expected
         for item in items:
-            assert any(tuple(box) == pytest.approx(item.rect, abs=.01) for box in page.search_for(item.value))
+            # Search the literal encoded glyphs, not the normalized UI value:
+            # Arial on Windows may map the displayed '-' to soft hyphen.
+            raw_value = ''.join(piece.text for piece in item.pieces)
+            matches = page.search_for(raw_value, flags=pymupdf.TEXT_PRESERVE_WHITESPACE | pymupdf.TEXT_PRESERVE_LIGATURES)
+            assert any(tuple(box) == pytest.approx(item.rect, abs=.01) for box in matches)
             assert item.rect[2] - item.rect[0] < 300  # no frame across columns
 
 
