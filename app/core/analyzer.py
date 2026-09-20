@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 PrOximAl edit — analizator dokumentu.
-Z linii tekstu PDF (z dokładnym położeniem, czcionką, kolorem) wykrywa:
+Uwzględnia każdy niepusty fragment warstwy tekstowej PDF.
+Kategorie są podpowiedziami, a nie filtrem decydującym o widoczności.
+Z linii tekstu PDF (z dokładnym położeniem, czcionką, kolorem) klasyfikuje:
   • imiona i nazwiska (heurystyka + etykiety),
   • wszystkie numery (kwoty, PESEL, NIP, REGON, telefony, konta, numery faktur...),
   • daty (numeryczne i polskie słowne),
@@ -13,12 +15,14 @@ from __future__ import annotations
 
 import re
 import uuid
+import math
 from dataclasses import dataclass, field
 
 import pymupdf
 
 from .dates import find_dates, DateHit
 from . import fonts as fontmod
+from . import classification as classes
 
 # ------------------------------------------------------------------ modele --
 @dataclass
@@ -32,6 +36,8 @@ class SpanInfo:
     flags: int
     xref: int | None = None
     char_rects: list[tuple] = field(default_factory=list)
+    char_origins: list[tuple] = field(default_factory=list)
+    ocr_confidence: float | None = None
 
 @dataclass
 class Piece:
@@ -39,6 +45,7 @@ class Piece:
     span: SpanInfo
     text: str
     rect: tuple
+    origin: tuple | None = None
 
 @dataclass
 class Item:
@@ -53,6 +60,24 @@ class Item:
     enabled: bool = True
     score: float = 0.0
     source: str = "text"   # 'text' | 'ocr' 
+
+    direction: tuple = (1, 0)
+
+    @property
+    def rotation(self):
+        for vector, rotation in [((1, 0), 0), ((0, -1), 90), ((-1, 0), 180), ((0, 1), 270)]:
+            if all(math.isclose(a, b, abs_tol=1e-4) for a, b in zip(self.direction, vector)):
+                return rotation
+        return None
+
+    @property
+    def ocr_confidence(self):
+        scores = [piece.span.ocr_confidence for piece in self.pieces if piece.span.ocr_confidence is not None]
+        return min(scores) if scores else None
+
+    @property
+    def editable(self):
+        return self.rotation is not None
 
     @property
     def rect(self):
@@ -93,7 +118,8 @@ STOPWORDS = {
     "kontakt", "słownie", "slownie", "złotych", "zlotych", "groszy", "przedmiot", "umowy",
 }
 
-WORD_RE = re.compile(r"[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]{1,}(?:-[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]{1,})*")
+NAME_WORD = r"[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))*"
+WORD_RE = re.compile(r"(?<!\w)" + NAME_WORD + r"(?!\w)")
 LABEL_SPLIT_RE = re.compile(r"\s{2,}|;")
 
 RE_MONEY   = re.compile(r"(?<![.\d])(?:\d{1,3}(?:[ \u00a0]\d{3})*|\d+)[.,]\d{2}\s?(?:zł|zl|PLN|EUR|USD|CHF|GBP|€|\$)")
@@ -239,7 +265,8 @@ def extract_lines(page: "pymupdf.Page") -> list[dict]:
                 spans.append(SpanInfo(text=text, bbox=tuple(sp["bbox"]), origin=tuple(sp["origin"]),
                                       font=sp["font"], size=sp["size"], color=sp["color"],
                                       flags=sp.get("flags", 0), xref=font_xrefs.get(sp["font"]),
-                                      char_rects=[tuple(c["bbox"]) for c in sp["chars"]]))
+                                      char_rects=[tuple(c["bbox"]) for c in sp["chars"]],
+                                      char_origins=[tuple(c["origin"]) for c in sp["chars"]]))
             if not spans:
                 continue
             lines.append({"text": "".join(s.text for s in spans), "bbox": tuple(ln["bbox"]),
@@ -305,7 +332,8 @@ def _sub_pieces(line: dict, start: int, end: int, resolver) -> list[Piece]:
             boxes = sp.char_rects[s0:s1]
             rect = (min(r[0] for r in boxes), min(r[1] for r in boxes),
                     max(r[2] for r in boxes), max(r[3] for r in boxes))
-            pieces.append(Piece(span=sp, text=frag, rect=rect))
+            origin = sp.char_origins[s0] if sp.char_origins else None
+            pieces.append(Piece(span=sp, text=frag, rect=rect, origin=origin))
             continue
         fobj = resolver(sp)
         try:
@@ -374,20 +402,47 @@ def analyze_lines(lines: list[dict], resolver=None, page_no=0, ocr: bool = False
             score = min(score, 0.6)  # OCR — mniejsza pewność
         items.append(Item(id=uuid.uuid4().hex[:10], type=typ, value=line["text"][s:e],
                           label=label, page=page_no, pieces=pieces, date_hit=hit, score=score,
-                          source="ocr" if ocr else "text"))
+                          source="ocr" if ocr else "text", direction=tuple(line.get("dir", (1, 0)))))
 
     for ri, row in enumerate(rows):
         for pi, line in enumerate(row["parts"]):
-            if tuple(line.get("dir", (1, 0))) not in ((1, 0), (1.0, 0.0)):
-                continue
             text = line["text"]
 
             def lab(ms, _pi=pi, _ri=ri):
                 return _label_for(row, _pi, ms, rows, _ri)
 
-            # ---- 0) grosze słownie (NN/100) — rezerwa
+            # Specific full values first, so letters/digits are not split up.
+            for rx, typ in ((classes.EMAIL, "email"), (classes.URL, "adres www")):
+                for m in rx.finditer(text):
+                    end = m.end()
+                    while end > m.start() and text[end - 1] in ".,;!?)":
+                        end -= 1
+                    add(ri, line, m.start(), end, typ, lab(m.start()), .95, pi=pi)
+
+            # A city immediately following a postal code, including ALL CAPS.
+            for m in RE_POSTAL.finditer(text):
+                city = classes.CITY.match(text, m.end())
+                if city:
+                    add(ri, line, city.start(1), city.end(1), "miejscowość", "Miejscowość", .9, pi=pi)
+
+            # Street + house number form one editable value. Without "ul." we
+            # require address context (e.g. the postal-code line underneath).
+            address_context = classes.postal_below(line, lines, RE_POSTAL)
+            for m in classes.STREET.finditer(text):
+                value = m.group()
+                if (classes.STREET_PREFIX.match(value) or address_context
+                        or re.search(r"(?i)adres\s*:\s*$", text[:m.start()])):
+                    add(ri, line, m.start(), m.end(), "adres", "Adres", .9, pi=pi)
+
+            if classes.COMPANY.search(text.strip()) and len(text) < 180:
+                start = text.find(":") + 1 if ":" in text else 0
+                while start < len(text) and text[start].isspace():
+                    start += 1
+                add(ri, line, start, len(text.rstrip()), "nazwa firmy", lab(start), .85, pi=pi)
+
+            # Previously discarded fractions must remain editable too.
             for m in RE_GROSZ.finditer(text):
-                taken.append((ri, pi, m.start(), m.end()))
+                add(ri, line, m.start(), m.end(), "ułamek", lab(m.start()), .9, pi=pi)
 
             # Alphanumeric identifiers are indivisible, including lower-case letters.
             for m in RE_MIXED.finditer(text):
@@ -449,11 +504,13 @@ def analyze_lines(lines: list[dict], resolver=None, page_no=0, ocr: bool = False
                 if is_taken(ri, s_, e_, pi):
                     continue
                 rest = text[e_:]
-                mm = re.match(r"((?:[\s\u00a0]+[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]{1,}(?:-[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]{1,})*){1,2})", rest)
+                mm = re.match(r"((?:[ \t\u00a0]+" + NAME_WORD + r"){1,2})(?!\w)", rest)
                 ext_end = e_
                 if mm:
                     cand_end = e_ + mm.end(1)
-                    if not is_taken(ri, s_, cand_end, pi) and len(word) > 2:
+                    candidate_words = WORD_RE.findall(text[s_:cand_end])
+                    if (not any(w.lower() in STOPWORDS for w in candidate_words)
+                            and not is_taken(ri, s_, cand_end, pi) and len(word) > 2):
                         ext_end = cand_end
                 word_full = text[s_:ext_end]
                 if word_full.lower() in STOPWORDS or len(word_full) < 3:
@@ -462,6 +519,29 @@ def analyze_lines(lines: list[dict], resolver=None, page_no=0, ocr: bool = False
                 if ttype == "nazwa" and len(re.findall(r"[A-ZĄĆĘŁŃÓŚŹŻ]", word_full)) < 2:
                     continue
                 add(ri, line, s_, ext_end, ttype, label, sc, pi=pi)
+
+            # Completeness pass: include every remaining non-whitespace range.
+            # Intervals partition the original line; no duplicate/overlapping
+            # editable values are introduced by the generic fallback.
+            intervals = sorted((a, b) for r, part, a, b in taken if r == ri and part == pi)
+            cursor = 0
+            for start, end in intervals + [(len(text), len(text))]:
+                left, right = cursor, start
+                while left < right and text[left].isspace():
+                    left += 1
+                while right > left and text[right - 1].isspace():
+                    right -= 1
+                if left < right:
+                    # Keep an unknown field label separate from its body too.
+                    colon = text.find(":", left, right)
+                    if left < colon < min(right - 1, left + 60) and any(c.isalpha() for c in text[left:colon]):
+                        add(ri, line, left, colon + 1, "etykieta", "Etykieta pola", .85, pi=pi)
+                        left = colon + 1
+                        while left < right and text[left].isspace():
+                            left += 1
+                    typ, score = classes.fallback_type(text[left:right], line)
+                    add(ri, line, left, right, typ, lab(left), score, pi=pi)
+                cursor = max(cursor, end)
 
     items.sort(key=lambda it: (it.page, round(it.rect[1], 1), it.rect[0]))
     return items

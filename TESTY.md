@@ -112,3 +112,43 @@ wyboru szablonu, powrotu do dokumentu i ustawień kreatora. **Nie zostały tutaj
 wykonane**, z tej samej przyczyny co wcześniejsze testy GUI (brak bibliotek Qt
 w systemie). Na Windows należy dodatkowo sprawdzić odświeżanie listy po powrocie
 z Eksploratora oraz otwieranie folderu przyciskiem.
+
+## Poprawka: pełna warstwa tekstowa, kategorie i duże litery
+
+Przed edycją: **61 testów pytest + 30 testów starego zestawu zaliczonych**.
+Odtworzono układ ze zrzutu: nazwisko WIELKIMI LITERAMI, ulica z numerem,
+kod pocztowy i miejscowość, powtórzone w dwóch kolumnach. Sam zrzut nie jest
+PDF-em źródłowym; testy używają wygenerowanych dokumentów o tym układzie.
+W opublikowanym teście zastąpiono nazwisko fikcyjną wartością.
+
+Wynik lokalny po zmianach:
+
+- **96 testów pytest zaliczonych**, 1 pominięty moduł GUI (brak bibliotek systemowych Qt).
+- **30 testów starego zestawu zaliczonych**; rzeczywisty OCR nadal pominięty.
+- Kompilacja Pythona, Ruff (`--select F`) dla zmienionych modułów/testów
+  i kontrola `git diff --check`: poprawne.
+
+Nowe testy pokrycia sprawdzają, że każdy niebiały znak odczytany z PDF trafia
+**dokładnie do jednego** elementu — bez zgubionych tekstów i bez podwójnych
+edycji tej samej pozycji. Sprawdzono m.in. duże litery, małe litery, polskie
+znaki, niezidentyfikowany tekst, etykiety, nagłówki, ułamki, interpunkcję,
+e-maile, adresy WWW, nazwy firm, rozdział kolumn oraz sortowanie bez zmiany ID.
+
+Dodatkowo sprawdzono podmianę tekstu obróconego o 0/90/180/270° na stronach
+normalnych i obróconych. Dowolne inne kąty są jawnie oznaczane jako tylko
+odczyt, zamiast znikać z wyników. Testy kontrolowanych wyników OCR potwierdzają,
+że słowo o pewności 12,5% pozostaje widoczne z informacją o niskiej pewności.
+
+Wykryto i naprawiono również kasowanie sąsiedniego wiersza przy ciasnym
+interlinii: pełne prostokąty glifów zachodziły na siebie. Redakcja warstwy
+tekstowej używa teraz środkowego pasa każdego fragmentu; testy w czterech
+orientacjach potwierdzają zachowanie sąsiedniego tekstu.
+
+Stary test wykluczający `00/100` z wyników został świadomie zmieniony:
+w trybie pełnego tekstu ułamek ma być dostępny jako **jeden cały fragment**,
+a nie ukrywany ani dzielony na dwa numery.
+
+Testy GUI zaktualizowano dla dodatkowych etykiet oraz sortowania i powiązania
+edycji z ID. Lokalnie nie są liczone jako zaliczone. W workflow Windows
+włączono `PYTHONUTF8=1`, aby uruchomienie testów z polskimi znakami i symbolami
+nie zależało od strony kodowej konsoli.

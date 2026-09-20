@@ -49,8 +49,8 @@ def window(app, tmp_path):
 
 def test_native_window_table_boxes(window, app):
     assert window.windowTitle().endswith('PrOximAl edit')
-    assert window.table.rowCount() == 1
-    assert len(window.boxes) == 1
+    assert window.table.rowCount() == 2
+    assert len(window.boxes) == 2
     box = window.boxes[0].rect()
     rect = window.visible_items[0].rect
     assert (box.x(), box.y(), box.right(), box.bottom()) == pytest.approx(rect)
@@ -73,7 +73,7 @@ def test_rotated_page_and_filter(window, app):
     assert not window.boxes
     window.search.clear()
     window.page_only.setChecked(False)
-    assert window.table.rowCount() == 2
+    assert window.table.rowCount() == 4
 
 
 def test_edit_randomize_undo_apply_export(window, app, tmp_path):
@@ -114,7 +114,7 @@ def test_open_worker(window, app, tmp_path):
     assert not window.busy
     assert window.page == 0
     assert window.page_spin.value() == 1
-    assert window.table.rowCount() == 1
+    assert window.table.rowCount() == 2
 
 
 def test_start_library_selection_and_resume(window, app):
@@ -165,3 +165,23 @@ def test_start_without_document_and_creator(app, tmp_path):
     finally:
         window.close()
         app.processEvents()
+
+
+def test_full_text_category_sort_and_edit_identity(window, app):
+    assert window.sort_mode.currentData() == 'type'
+    assert [it.type for it in window.visible_items] == ['symbol', 'etykieta']
+    ids = {it.id for it in window.visible_items}
+    window.sort_mode.setCurrentIndex(window.sort_mode.findData('position'))
+    assert window.visible_items[0].value == 'Numer:'
+    window.table.item(0, 3).setText('Kod:')
+    assert window.doc.changed[window.visible_items[0].id] == 'Kod:'
+    window.sort_mode.setCurrentIndex(window.sort_mode.findData('type'))
+    assert window.visible_items[1].value == 'Numer:'
+    assert window.table.item(1, 3).text() == 'Kod:'
+    assert {it.id for it in window.visible_items} == ids
+    window.type_filter.setCurrentText('etykieta')
+    assert window.table.rowCount() == 1
+    assert len(window.boxes) == 1
+    window.clear()
+    window.randomize(True)
+    assert not window.doc.changed  # bulk randomization never corrupts labels

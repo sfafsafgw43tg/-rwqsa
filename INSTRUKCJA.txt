@@ -24,9 +24,13 @@ bez utraty aktualnych zmian.
 
 EDYCJA:
 1. Otwórz PDF lub przeciągnij go do okna.
-2. Kliknij ramkę albo edytuj kolumnę „Nowa wartość”.
+2. Na liście jest każdy odczytany fragment tekstu, również nagłówki i etykiety.
+   Domyślnie jest sortowany według kategorii (osoba, adres, miasto, data itd.).
+   Możesz wybrać kolejność w PDF albo sortowanie alfabetyczne.
+   Kliknij ramkę albo edytuj kolumnę „Nowa wartość”.
 3. Możesz zaznaczyć wiersze i kliknąć „Losuj zaznaczone”.
-   „Losuj widoczne” uwzględnia aktualne filtry i zakres stron.
+   „Losuj widoczne” uwzględnia filtry i strony, ale pomija etykiety i zwykły tekst.
+   „Losuj zaznaczone” pozwala losować również wskazany zwykły tekst.
 4. „Zastosuj i sprawdź” — obejrzyj wynik i ewentualne pominięcia.
 5. „Zapisz PDF jako…” — zapisz kopię. Oryginał nie jest nadpisywany.
 

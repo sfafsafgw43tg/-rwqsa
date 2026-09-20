@@ -21,6 +21,7 @@ from .core.document import Document
 from .core.templates import TemplateLibrary, DEFAULT_FOLDER
 from .home import HomePage, NewPdfDialog
 from .core.randomize import randomize_items
+from .core.classification import sort_items, STRUCTURAL_TYPES
 from .core.replacer import ReplaceOptions
 from .core import report, batch
 
@@ -93,11 +94,13 @@ class DataBox(QGraphicsRectItem):
         super().__init__(rect)
         self.item_id = item.id
         self.callback = callback
-        pen = QPen(QColor('#d5b772' if changed else '#568dc5'), 1.2)
+        color = '#d5b772' if changed else ('#89939e' if item.type in STRUCTURAL_TYPES else '#568dc5')
+        pen = QPen(QColor(color), 1.2)
         pen.setCosmetic(True)
         self.setPen(pen)
         self.setBrush(QColor(90, 150, 215, 18))
-        self.setToolTip(f'{item.type}: {item.value}\n{item.label}\nKliknij, aby edytować')
+        self.setToolTip(f'{item.type}: {item.value}\n{item.label}\n' +
+                        ('Kliknij, aby edytować' if item.editable else 'Niestandardowy kąt — tylko odczyt'))
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setZValue(1)
 
@@ -264,6 +267,7 @@ class MainWindow(QMainWindow):
         lv.addLayout(preview_options)
         self.box_toggle = QCheckBox('Ramki wykrytych danych')
         self.box_toggle.setChecked(True)
+        self.box_toggle.setToolTip('Niebieskie: rozpoznane dane. Szare: tekst i etykiety. Złote: zmienione wartości.')
         self.box_toggle.toggled.connect(self.draw_boxes)
         preview_options.addWidget(self.box_toggle)
         preview_options.addStretch()
@@ -294,9 +298,16 @@ class MainWindow(QMainWindow):
         self.page_only.toggled.connect(self.fill_table)
         scope.addWidget(self.page_only)
         scope.addStretch()
+        self.sort_mode = QComboBox()
+        self.sort_mode.addItem('Według typu', 'type')
+        self.sort_mode.addItem('Kolejność w PDF', 'position')
+        self.sort_mode.addItem('Alfabetycznie', 'value')
+        self.sort_mode.setToolTip('Sortowanie listy nie zmienia położenia tekstu w PDF.')
+        self.sort_mode.currentIndexChanged.connect(self.fill_table)
+        scope.addWidget(self.sort_mode)
         self.ocr_button = self.button('OCR skanów', self.run_ocr, scope)
         self.table = QTableWidget(0, 4)
-        self.table.setHorizontalHeaderLabels(['Str.', 'Typ / opis', 'Oryginał', 'Nowa wartość'])
+        self.table.setHorizontalHeaderLabels(['Str.', 'Kategoria', 'Oryginał', 'Nowa wartość'])
         self.table.verticalHeader().hide()
         self.table.setAlternatingRowColors(True)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -311,7 +322,7 @@ class MainWindow(QMainWindow):
         self.random_selected = self.button('Losuj zaznaczone', lambda: self.randomize(False), random_row)
         self.random_all = self.button('Losuj widoczne', lambda: self.randomize(True), random_row)
         self.clear_button = self.button('Wyczyść zmiany', self.clear, random_row)
-        note = QLabel('Dane syntetyczne. Losowanie nie gwarantuje anonimizacji.\nCtrl + klik: kilka wierszy. Dwuklik w „Nowa wartość”: edycja.')
+        note = QLabel('Widoczny jest cały odczytany tekst. Kategoria jest podpowiedzią.\nLosuj widoczne pomija zwykły tekst, etykiety i nagłówki.\nCtrl + klik: kilka wierszy. Dwuklik w „Nowa wartość”: edycja.')
         note.setObjectName('muted')
         rv.addWidget(note)
         splitter.addWidget(right)
@@ -544,10 +555,11 @@ class MainWindow(QMainWindow):
             return []
         query = self.search.text().casefold().strip()
         typ = self.type_filter.currentText() if self.type_filter.currentIndex() > 0 else ''
-        return [it for it in self.doc.items if
+        items = [it for it in self.doc.items if
                 (not self.page_only.isChecked() or it.page == self.page) and
                 (not typ or it.type == typ) and
                 (not query or query in f'{it.value} {it.type} {it.label}'.casefold())]
+        return sort_items(items, self.sort_mode.currentData())
 
     def fill_table(self, *_):
         self.visible_items = self.filtered_items()
@@ -556,10 +568,13 @@ class MainWindow(QMainWindow):
         for row, it in enumerate(self.visible_items):
             for col, text in enumerate((str(it.page + 1), it.type, it.value, self.doc.changed.get(it.id, ''))):
                 cell = QTableWidgetItem(text)
-                if col != 3:
+                if col != 3 or not it.editable:
                     cell.setFlags(cell.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                cell.setToolTip(f'{it.label}\n{it.font_desc}\nPewność: {it.score:.0%}' +
-                                ('\nOCR: zweryfikuj tekst i położenie.' if it.source == 'ocr' else ''))
+                cell.setToolTip(f'{it.label}\n{it.font_desc}\nPewność klasyfikacji: {it.score:.0%}' +
+                                ('\nNiestandardowy kąt tekstu — tylko odczyt.' if not it.editable else '') +
+                                ((f'\nOCR: {it.ocr_confidence:.0%} — zweryfikuj tekst i położenie.'
+                                  if it.ocr_confidence is not None else '\nOCR: zweryfikuj tekst i położenie.')
+                                 if it.source == 'ocr' else ''))
                 if col == 3 and text:
                     cell.setForeground(QColor('#e3c383'))
                 self.table.setItem(row, col, cell)
@@ -574,7 +589,8 @@ class MainWindow(QMainWindow):
             if item.id == item_id:
                 self.table.setCurrentCell(row, 3)
                 self.table.scrollToItem(self.table.item(row, 3))
-                self.table.editItem(self.table.item(row, 3))
+                if item.editable:
+                    self.table.editItem(self.table.item(row, 3))
                 break
 
     def highlight_selection(self):
@@ -583,7 +599,7 @@ class MainWindow(QMainWindow):
             box.setBrush(QColor(90, 150, 215, 65 if box.item_id in ids else 18))
 
     def cell_changed(self, row, col):
-        if col != 3 or not self.doc:
+        if col != 3 or not self.doc or not self.visible_items[row].editable:
             return
         values = self.doc.changed.copy()
         values[self.visible_items[row].id] = self.table.item(row, col).text()
@@ -608,7 +624,7 @@ class MainWindow(QMainWindow):
         self.ocr_button.setEnabled(bool(doc and doc.empty_pages))
         for button in (self.random_selected, self.random_all, self.clear_button):
             button.setEnabled(bool(doc and doc.items))
-        self.stats.setText(f'{len(doc.items)} wykrytych  ·  {len(doc.changed)} zmian' +
+        self.stats.setText(f'{len(doc.items)} fragmentów tekstu  ·  {len(doc.changed)} zmian' +
                            ('  ·  zastosuj ponownie, aby zapisać' if doc.changed and not can_save else '')
                            if doc else 'Brak dokumentu')
         if refill:
@@ -625,7 +641,11 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage('Zaznacz wiersze do losowania.')
             return
         values = self.doc.changed.copy()
-        values.update(randomize_items(items))
+        generated = randomize_items(items, include_text=not all_visible)
+        if not generated:
+            self.statusBar().showMessage("Brak pól do losowania. Wybierz tekst ręcznie lub wpisz nową wartość.")
+            return
+        values.update(generated)
         self.doc.change(values)
         self.refresh()
 

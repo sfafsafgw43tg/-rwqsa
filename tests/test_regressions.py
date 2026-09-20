@@ -49,7 +49,9 @@ def test_labels_and_units_stuck_to_digits(pdf, value, typ):
 def test_grosz_crash_and_false_detection(pdf):
     items, _ = analyzer.analyze_document(str(pdf('Słownie: 00/100 Jan Kowalski')))
     assert any(i.value == 'Jan Kowalski' for i in items)
-    assert not any(i.value in ('00', '100', '00/100') for i in items)
+    # All-text mode keeps the fraction intact instead of discarding it.
+    assert not any(i.value in ('00', '100') for i in items)
+    assert sum(i.value == '00/100' and i.type == 'ułamek' for i in items) == 1
 
 
 @pytest.mark.parametrize('rotation', [0, 90, 180, 270])

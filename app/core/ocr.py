@@ -67,10 +67,10 @@ def ocr_words_with_geometry(page, lang: str = "pol", dpi: int = 300) -> list[dic
     words = []
     for i in range(len(data["text"])):
         t = data["text"][i].strip()
-        if not t or float(data["conf"][i]) < 35:
+        if not t or float(data["conf"][i]) < 0:
             continue
         x, y, w, h = data["left"][i] * scale, data["top"][i] * scale, data["width"][i] * scale, data["height"][i] * scale
-        words.append({"text": t, "bbox": (x, y, x + w, y + h), "line": (data["block_num"][i], data["par_num"][i], data["line_num"][i])})
+        words.append({"text": t, "confidence": max(0.0, min(1.0, float(data["conf"][i]) / 100)), "bbox": (x, y, x + w, y + h), "line": (data["block_num"][i], data["par_num"][i], data["line_num"][i])})
     return words
 
 
@@ -116,7 +116,7 @@ def ocr_page_lines(page, lang="pol", dpi=260) -> list[dict]:
             h = max(4, y1 - y0)
             spans.append(SpanInfo(text + " ", (x0, y0, x1, y1),
                                   (x0, y1 - .15 * h), "Helvetica", .85 * h,
-                                  0, 0, char_rects=rects))
+                                  0, 0, char_rects=rects, ocr_confidence=word.get("confidence")))
         bbox = (min(s.bbox[0] for s in spans), min(s.bbox[1] for s in spans),
                 max(s.bbox[2] for s in spans), max(s.bbox[3] for s in spans))
         result.append({"text": "".join(s.text for s in spans), "spans": spans,

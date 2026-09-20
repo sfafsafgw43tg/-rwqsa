@@ -30,7 +30,8 @@ def _int_to_rgb(c: int) -> tuple[float, float, float]:
 def sample_background(page, rect, zoom=3.0, margin=1.5) -> tuple[float, float, float]:
     """Próbkuj kolor tła wokół fragmentu (mediana z pierścienia pikseli)."""
     try:
-        clip = pymupdf.Rect(rect[0] - margin, rect[1] - margin, rect[2] + margin, rect[3] + margin) & page.rect
+        clip = (pymupdf.Rect(rect[0] - margin, rect[1] - margin, rect[2] + margin, rect[3] + margin)
+                * page.rotation_matrix) & page.rect
         pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), clip=clip, alpha=False)
         w, h, n = pix.width, pix.height, pix.n
         buf = pix.samples
@@ -124,6 +125,10 @@ def replace_item(page, item: Item, new_value: str, opts: ReplaceOptions) -> dict
     """Podmienia jeden element na stronie. Zwraca raport częściowy."""
     rep = {"id": item.id, "old": item.value, "new": new_value, "page": item.page,
            "status": "ok", "font": "", "size": None, "shrunk": False}
+    rotation = item.rotation
+    if rotation is None:
+        rep["status"] = "pominięto: dowolny kąt tekstu — dostępny do odczytu"
+        return rep
     if not new_value:
         rep["status"] = "pominieto (pusta wartość)"
         return rep
@@ -139,8 +144,8 @@ def replace_item(page, item: Item, new_value: str, opts: ReplaceOptions) -> dict
     host = pieces[0]
     union = pymupdf.Rect(item.rect)
     # miejsce dostępne dla nowego tekstu: stary obszar (+ ewentualnie wolna przestrzeń na prawo)
-    max_width = union.width
-    if opts.allow_expand:
+    max_width = union.height if rotation in (90, 270) else union.width
+    if opts.allow_expand and rotation == 0:
         free = free_space_right(page, tuple(union))
         max_width += min(free, 0.60 * union.width + 12)
 
@@ -183,9 +188,22 @@ def replace_item(page, item: Item, new_value: str, opts: ReplaceOptions) -> dict
             # bbox z OCR bywa zbyt ciasny — szerzyj, by usunąć CAŁE stare glify
             r.x0 -= 1.2; r.x1 += 1.2; r.y0 -= 1.4; r.y1 += 1.4
         else:
-            # minimalne wcięcie, by nie uszkodzić sąsiadów
-            r.x0 += 0.2; r.x1 -= 0.2
-        r = r & page.rect
+            # PDF redaction removes an entire glyph on ANY intersection.
+            # Full ascender/descender rectangles overlap neighbouring tight
+            # rows. Use a central band per span instead, not the full height.
+            if rotation in (0, 180):
+                middle = (r.y0 + r.y1) / 2
+                half = r.height * .12
+                r.y0, r.y1 = middle - half, middle + half
+                inset = min(.2, r.width * .1)
+                r.x0 += inset; r.x1 -= inset
+            else:
+                middle = (r.x0 + r.x1) / 2
+                half = r.width * .12
+                r.x0, r.x1 = middle - half, middle + half
+                inset = min(.2, r.height * .1)
+                r.y0 += inset; r.y1 -= inset
+        r = r & pymupdf.Rect(0, 0, page.cropbox.width, page.cropbox.height)
         if not r.is_empty:
             page.add_redact_annot(r, fill=fill)
     img_mode = (pymupdf.PDF_REDACT_IMAGE_PIXELS
@@ -200,12 +218,12 @@ def replace_item(page, item: Item, new_value: str, opts: ReplaceOptions) -> dict
 
     # --- 3. wstawienie nowego tekstu ---
     # X = LEWA krawędź FRAGMENTU (nie całego spana!), Y = baseline spana
-    x = min(p.rect[0] for p in pieces)
-    y = host.span.origin[1]
+    x, y = host.origin or (min(p.rect[0] for p in pieces), host.span.origin[1])
     if opts.preserve_center:
         w_new = fontmod.text_width(fobj, new_value, size)
-        cx = (union.x0 + union.x1) / 2
-        x = cx - w_new / 2
+        offset = (max_width - w_new) / 2
+        x += item.direction[0] * offset
+        y += item.direction[1] * offset
     fontname_kwargs = {}
     alias = None
     if finfo.get("buffer") is not None:
@@ -221,14 +239,14 @@ def replace_item(page, item: Item, new_value: str, opts: ReplaceOptions) -> dict
 
     try:
         rc = page.insert_text(pymupdf.Point(x, y), new_value, fontsize=size,
-                              color=color, **fontname_kwargs)
+                              color=color, rotate=rotation, **fontname_kwargs)
         if rc < 0:
             rep["status"] = "ostrzeżenie: część znaków może nie być wyświetlona"
     except Exception as e:
         # awaryjnie base-14
         try:
             page.insert_text(pymupdf.Point(x, y), new_value, fontsize=size,
-                             fontname="helv", color=color)
+                             fontname="helv", color=color, rotate=rotation)
             rep["status"] = f"ok (awaryjna czcionka helv; {str(e)[:40]})"
         except Exception as e2:
             rep["status"] = f"błąd wstawienia: {str(e2)[:60]}"

@@ -70,6 +70,33 @@ Nie wymaga konta, chmury ani przeglądarki.
 Własne PDF-y w `templates/` są ignorowane przez Git. Usuwanie i przenoszenie
 szablonów odbywa się zwyczajnie w menedżerze plików. Szczegóły: `templates/README.md`.
 
+## Pełny tekst i kategorie
+
+Analizator pokazuje **każdy niepusty fragment odczytanej warstwy tekstowej PDF**,
+a nie tylko wartości pasujące do kilku wzorców. Zachowuje również zwykłe zdania,
+nagłówki, etykiety, skróty, ułamki i znaki. Kategorie są lokalną heurystyką:
+niepewne rozpoznanie nie usuwa tekstu z listy.
+
+- Imiona i nazwiska zapisane WIELKIMI LITERAMI są obsługiwane.
+- Ulica z numerem domu jest łączona w kategorię **adres** przy kontekście
+  adresowym; kod pocztowy i miejscowość mają osobne kategorie.
+- Rozpoznawane są również e-maile, adresy WWW i oznaczenia firm.
+- Lista domyślnie jest **sortowana według typu**. Dostępne są również
+  **Kolejność w PDF** i **Alfabetycznie**. Sortowanie nie przestawia tekstu w pliku.
+- Filtr **Wszystkie typy** pokazuje także zwykły tekst i etykiety. Szare ramki
+  oznaczają tekst pomocniczy, niebieskie — rozpoznane dane, złote — zmiany.
+- Każdy fragment ma własne ID: edycja po zmianie sortowania nadal dotyczy
+  właściwego miejsca w PDF. Dokładna geometria pochodzi z pozycji znaków.
+- **Losuj widoczne** pomija nagłówki, etykiety, zwykły tekst i samą interpunkcję,
+  aby nie niszczyć struktury dokumentu. **Losuj zaznaczone** może losować także
+  zaznaczony zwykły tekst. Ręczna edycja jest dostępna dla obu grup.
+- OCR nie odrzuca już słów tylko dlatego, że mają niską pewność rozpoznania:
+  pokazuje je z wynikiem pewności w podpowiedzi. Trzeba je ręcznie zweryfikować.
+
+To nie gwarancja odczytania każdej widocznej litery: skany bez warstwy tekstowej
+wymagają OCR, a tekst zapisany jako krzywe lub obraz nie jest tekstem PDF.
+Błędna warstwa tekstowa i błędy OCR wymagają kontroli podglądem.
+
 ## Użycie
 
 1. **Otwórz PDF** (`Ctrl+O`) lub przeciągnij lokalny plik do okna.
@@ -77,7 +104,7 @@ szablonów odbywa się zwyczajnie w menedżerze plików. Szczegóły: `templates
    Ramki i strona używają tej samej skali, również przy powiększaniu i obrocie strony.
 3. W tabeli edytuj kolumnę **Nowa wartość** albo użyj:
    - **Losuj zaznaczone** — jeden lub kilka wierszy (`Ctrl+klik`),
-   - **Losuj widoczne** — tylko wiersze zgodne z filtrem i zakresem stron.
+   - **Losuj widoczne** — rozpoznane dane zgodne z filtrem i zakresem stron, bez etykiet i zwykłego tekstu.
      Odznacz „Tylko bieżąca strona”, aby uwzględnić cały dokument.
 4. **Zastosuj i sprawdź** generuje wynik z niezmienionej kopii źródła.
    Przełączaj „Pokaż wynik”, aby porównać. Na wyniku ramki oryginału są celowo
@@ -126,9 +153,10 @@ wymazywanie danych z dysku. Stary folder `praca/` nie jest już używany.
 
 ## Ograniczenia
 
-- Wykrywanie jest heurystyczne: nie każdy tekst zostanie wykryty jako dane.
+- Klasyfikacja jest heurystyczna. Nierozpoznany fragment nadal pozostaje na liście jako tekst.
 - Zabezpieczone hasłem PDF-y są odrzucane z komunikatem.
-- Tekst obrócony wewnątrz strony jest pomijany; obrót całej strony jest obsługiwany.
+- Tekst o obrocie 0/90/180/270° oraz obrót całej strony są obsługiwane.
+  Tekst pod innym kątem jest widoczny, ale oznaczony jako tylko do odczytu.
 - OCR wymaga kontroli — pozycje znaków wewnątrz słów są przybliżone, a tekst
   na obrazie nie zachowa identycznej czcionki.
 - Jeśli nowy tekst nie mieści się przy minimalnej czcionce, podmiana jest
@@ -168,7 +196,8 @@ Linux i Windows; jego dodanie nie oznacza, że został już wykonany w GitHub Ac
 - `app/core/templates.py` — lokalna biblioteka i tworzenie/import szablonów;
 - `app/desktop.py` — natywne okno, tabela, podgląd i operacje w tle;
 - `app/core/document.py` — kopia robocza, cofanie, wynik i bezpieczny eksport;
-- `app/core/analyzer.py` — wykrywanie i rzeczywista geometria znaków;
+- `app/core/analyzer.py` — pełna warstwa tekstowa i rzeczywista geometria znaków;
+- `app/core/classification.py` — kategorie, kontekst adresowy i sortowanie;
 - `app/core/randomize.py` — losowanie danych lokalnie;
 - pozostałe `app/core/` — podmiana, czcionki, daty, OCR, mapowania, raporty;
 - `app/shortcut.py` — konwersja PNG do ICO i skrót Windows;

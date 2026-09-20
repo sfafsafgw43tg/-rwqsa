@@ -6,6 +6,7 @@ import random
 import re
 import string
 from .dates import format_same_style, date_key
+from .classification import STRUCTURAL_TYPES
 
 
 def _digits(rng, n):
@@ -50,6 +51,12 @@ def random_value(item, rng=None):
             base = _digits(rng, 24)
             check = 98 - int(base + '252100') % 97
             value = _mask_digits(text, f'{check:02}' + base)
+        elif typ == 'miejscowość':
+            value = rng.choice(['Warszawa', 'Lublin', 'Gdańsk', 'Poznań', 'Kraków'])
+        elif typ == 'email':
+            value = 'osoba' + _digits(rng, 6) + '@example.invalid'
+        elif typ == 'adres www':
+            value = 'https://example.invalid/' + _digits(rng, 6)
         elif typ in ('imię i nazwisko', 'nazwisko', 'nazwa'):
             first = rng.choice(['Anna', 'Maria', 'Julia', 'Piotr', 'Adam', 'Jan'])
             last = rng.choice(['Nowak', 'Lis', 'Wójcik', 'Mazur', 'Zając', 'Król'])
@@ -57,19 +64,26 @@ def random_value(item, rng=None):
         else:
             # Preserve punctuation, spaces, case and the letter/digit pattern.
             value = ''.join(str(rng.randrange(10)) if c.isdecimal() else
-                            rng.choice(string.ascii_uppercase) if c.isalpha() and c.isupper() and typ == 'symbol' else
-                            rng.choice(string.ascii_lowercase) if c.isalpha() and typ == 'symbol' else c
+                            rng.choice(string.ascii_uppercase) if c.isalpha() and c.isupper() and typ in {'symbol', 'adres', 'tekst', 'etykieta', 'nagłówek', 'nazwa firmy'} else
+                            rng.choice(string.ascii_lowercase) if c.isalpha() and typ in {'symbol', 'adres', 'tekst', 'etykieta', 'nagłówek', 'nazwa firmy'} else c
                             for c in text)
+        if text.isupper():
+            value = value.upper()
+        elif text.islower() and typ in {"imię i nazwisko", "nazwisko", "miejscowość"}:
+            value = value.lower()
         if value != text:
             return value
     raise ValueError(f'Nie można wylosować innej wartości: {text}')
 
 
-def randomize_items(items, rng=None):
+def randomize_items(items, rng=None, include_text=False):
     """Identical values receive identical replacements, also across date formats."""
     rng = rng or random.SystemRandom()
     cache, result, date_cache = {}, {}, {}
     for item in items:
+        if (not item.editable or not any(c.isalnum() for c in item.value)
+                or (not include_text and item.type in STRUCTURAL_TYPES)):
+            continue
         if item.date_hit and (key := date_key(item.date_hit)):
             if key not in date_cache:
                 base = item.date_hit.date or dt.date(item.date_hit.year, item.date_hit.month, 1)
