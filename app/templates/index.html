@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KAMELEON PDF — Profesjonalna Zamiana Danych</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>🦎</text></svg>">
+</head>
+<body>
+
+<!-- ======================= NAGŁÓWEK ======================= -->
+<header id="topbar">
+  <div class="brand">
+    <div class="logo">🦎</div>
+    <div>
+      <div class="brand-name">KAMELEON <span>PDF</span></div>
+      <div class="brand-sub">Profesjonalna zamiana danych w dokumentach · 100% offline</div>
+    </div>
+  </div>
+  <div class="top-actions">
+    <button id="btn-ocr" class="btn ghost" title="Zczytaj strony zeskanowane (OCR)">🔍 OCR skanów</button>
+    <button id="btn-dates" class="btn ghost" title="Zmień daty pliku i metadanych">🗓 Daty pliku…</button>
+    <button id="btn-batch" class="btn ghost" title="Zastosuj mapowanie do wielu plików">📚 Tryb wsadowy…</button>
+    <span class="sep"></span>
+    <button id="btn-export-csv" class="btn ghost small" title="Eksport zestawienia CSV">CSV</button>
+    <button id="btn-export-json" class="btn ghost small" title="Eksport zestawienia JSON">JSON</button>
+    <button id="btn-export-map" class="btn ghost small" title="Eksport mapowania (do trybu wsadowego)">MAPA</button>
+  </div>
+</header>
+
+<main id="layout">
+
+  <!-- ======================= LEWY PANEL ======================= -->
+  <aside id="left">
+    <section class="card" id="drop-card">
+      <div id="dropzone">
+        <div class="dz-icon">📄</div>
+        <div class="dz-title">Upuść plik PDF tutaj</div>
+        <div class="dz-sub">albo kliknij, aby wybrać z dysku</div>
+        <input type="file" id="file-input" accept=".pdf" hidden>
+      </div>
+      <div id="file-info" class="hidden">
+        <div class="fi-name" id="fi-name"></div>
+        <div class="fi-meta" id="fi-meta"></div>
+      </div>
+      <div id="progress-wrap" class="hidden"><div id="progress-bar"></div></div>
+    </section>
+
+    <section class="card">
+      <h3>⚙️ Opcje podmiany</h3>
+      <label class="row"><input type="checkbox" id="opt-expand" checked> Powiększaj w wolną przestrzeń <em>(mniejsze zmniejszanie czcionki)</em></label>
+      <label class="row"><input type="checkbox" id="opt-embedded" checked> Używaj czcionek osadzonych w PDF (1:1)</label>
+      <label class="row"><input type="checkbox" id="opt-center"> Wyśrodkuj nowy tekst</label>
+      <label class="row"><span class="lbl">Tło pod nowym tekstem:</span>
+        <select id="opt-fill">
+          <option value="auto">automatyczne (próbkowane)</option>
+          <option value="white">białe</option>
+          <option value="none">brak</option>
+        </select>
+      </label>
+      <label class="row"><span class="lbl">Minimalny rozmiar czcionki:</span>
+        <input type="number" id="opt-minsize" value="4" min="2" max="12" step="0.5" class="num"> pt
+      </label>
+      <div class="hint">Nowy tekst zawsze dziedziczy czcionkę, kolor i położenie oryginału; gdy jest dłuższy — czcionka jest automatycznie zmniejszana, więc nic na siebie nie nachodzi.</div>
+    </section>
+
+    <section class="card">
+      <h3>🗓 Zmiana dat (info)</h3>
+      <div class="hint" id="dates-current">Wgraj dokument, aby zobaczyć daty.</div>
+      <button class="btn wide" id="btn-dates-2">Otwórz panel dat…</button>
+    </section>
+
+    <section class="card grow">
+      <h3>🧠 Jak to działa</h3>
+      <ol class="steps">
+        <li>Wgraj PDF — aplikacja znajdzie <b>imiona, nazwiska, numery i daty</b> wraz z opisami.</li>
+        <li>Wpisz nowe wartości w prawym panelu.</li>
+        <li>Kliknij <b>„Zastosuj zmiany”</b> — stary tekst zostanie usunięty, a nowy wstawiony <b>tą samą czcionką, kolorem i w tym samym miejscu</b>.</li>
+        <li>Pobierz gotowy plik. Tryb wsadowy powtórzy zmiany na wielu podobnych dokumentach.</li>
+      </ol>
+    </section>
+  </aside>
+
+  <!-- ======================= ŚRODEK: PODGLĄD ======================= -->
+  <section id="center">
+    <div id="viewer-toolbar">
+      <div class="page-nav">
+        <button id="pg-prev" class="btn icon" title="Poprzednia strona">◀</button>
+        <span id="pg-label">strona — / —</span>
+        <button id="pg-next" class="btn icon" title="Następna strona">▶</button>
+      </div>
+      <div class="zoom">
+        <input type="checkbox" id="show-boxes" checked> <label for="show-boxes">ramki wykrytych danych</label>
+        <span class="sep"></span>
+        <input type="checkbox" id="show-result"> <label for="show-result">podgląd wyniku (po zmianach)</label>
+      </div>
+      <div class="legend">
+        <span class="lg" data-t="data"></span>daty
+        <span class="lg" data-t="osoby"></span>osoby
+        <span class="lg" data-t="kwota"></span>kwoty
+        <span class="lg" data-t="id"></span>PESEL/NIP/konta
+        <span class="lg" data-t="numer"></span>numery
+      </div>
+    </div>
+    <div id="viewer">
+      <div id="viewer-empty">
+        <div class="ve-icon">🦎</div>
+        <div>Kameleon czeka na Twój dokument…</div>
+        <div class="ve-sub">Wszystko dzieje się lokalnie na Twoim komputerze. Żaden plik nie opuszcza systemu.</div>
+      </div>
+      <div id="viewer-stage" class="hidden">
+        <img id="page-img" alt="podgląd strony">
+        <div id="boxes"></div>
+      </div>
+    </div>
+    <div id="apply-bar">
+      <button id="btn-apply" class="btn primary big" disabled>✨ Zastosuj zmiany</button>
+      <span id="apply-info"></span>
+      <a id="btn-download" class="btn success big hidden" download>⬇ Pobierz zmieniony PDF</a>
+    </div>
+  </section>
+
+  <!-- ======================= PRAWY PANEL: LISTA ======================= -->
+  <aside id="right">
+    <div class="card head">
+      <h3>📋 Wykryte dane</h3>
+      <input type="text" id="filter" placeholder="filtr: tekst / typ / opis…">
+      <div class="types-row" id="type-chips"></div>
+    </div>
+    <div id="items" class="card grow">
+      <div class="empty-list">Brak danych — wgraj dokument.</div>
+    </div>
+    <div class="card foot">
+      <div class="stat" id="stat-changed">Zmienione: <b>0</b></div>
+      <button id="btn-bulk" class="btn ghost small" title="Wyczyść wszystkie nowe wartości">wyczyść zmiany</button>
+    </div>
+  </aside>
+</main>
+
+<!-- ======================= MODAL: DATY ======================= -->
+<dialog id="dlg-dates" class="dlg">
+  <form method="dialog" onsubmit="return false">
+    <h3>🗓 Daty pliku i metadanych PDF</h3>
+    <div class="grid2">
+      <label>Utworzony:<input type="datetime-local" id="dt-created"></label>
+      <label>Zmodyfikowany:<input type="datetime-local" id="dt-modified"></label>
+    </div>
+    <label class="row"><input type="checkbox" id="dt-pdfmeta" checked> Ustaw także daty w metadanych PDF (CreationDate / ModDate)</label>
+    <div class="hint">Na Windows ustawiana jest także data utworzenia pliku. Zmiana dotyczy pliku wynikowego (a gdy brak — wgranego).</div>
+    <div class="dlg-actions">
+      <button class="btn ghost" onclick="document.getElementById('dlg-dates').close()">Anuluj</button>
+      <button class="btn primary" id="dt-save">Zapisz daty</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ======================= MODAL: BATCH ======================= -->
+<dialog id="dlg-batch" class="dlg">
+  <h3>📚 Tryb wsadowy</h3>
+  <div class="hint">Zastosuje to samo mapowanie (opis → nowa wartość) do wielu podobnych plików PDF, np. faktur z jednego szablonu.</div>
+  <ol class="steps">
+    <li>Zapisz mapowanie bieżącego dokumentu przyciskiem <b>MAPA</b> (albo przygotuj plik JSON wg wzorca).</li>
+    <li>Wgraj wiele plików PDF poniżej.</li>
+    <li>Wskaż plik mapowania i kliknij <b>Uruchom</b>.</li>
+  </ol>
+  <input type="file" id="batch-files" accept=".pdf" multiple>
+  <input type="file" id="batch-mapping" accept=".json">
+  <div id="batch-status"></div>
+  <div class="dlg-actions">
+    <button class="btn ghost" onclick="document.getElementById('dlg-batch').close()">Zamknij</button>
+    <button class="btn primary" id="batch-run">Uruchom wsad</button>
+    <a class="btn success hidden" id="batch-zip" download>⬇ Pobierz ZIP wyników</a>
+  </div>
+</dialog>
+
+<div id="toasts"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

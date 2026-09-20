@@ -1,0 +1,213 @@
+/* ============ KAMELEON PDF — motyw: Grafit & Złoto ============ */
+:root{
+  --bg:#0b0c10; --bg2:#0f1117;
+  --panel:#14161d; --panel2:#191c25; --panel3:#1f232e;
+  --line:#262a36; --line2:#323748;
+  --txt:#e9e6dd; --txt2:#a7a49a; --txt3:#6f6d66;
+  --gold:#d4af37; --gold2:#e8c96a; --gold-dim:rgba(212,175,55,.14);
+  --green:#3ecf8e; --red:#ff6b6b; --blue:#6ea8fe; --orange:#ffb454; --purple:#c792ea;
+  --radius:12px; --shadow:0 10px 30px rgba(0,0,0,.45);
+  --mono:"Cascadia Code","Consolas","JetBrains Mono",monospace;
+}
+*{box-sizing:border-box; margin:0; padding:0}
+html,body{height:100%}
+body{
+  font:14px/1.5 "Segoe UI",Inter,system-ui,-apple-system,sans-serif;
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(212,175,55,.055), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(110,168,254,.05), transparent 60%),
+    var(--bg);
+  color:var(--txt); overflow:hidden;
+}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#2b2f3c;border-radius:6px;border:2px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:#3a3f50}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ======================= NAGŁÓWEK ======================= */
+#topbar{
+  height:62px; display:flex; align-items:center; justify-content:space-between;
+  padding:0 18px; border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg, rgba(212,175,55,.05), transparent 55%), var(--bg2);
+  box-shadow:0 4px 24px rgba(0,0,0,.35);
+}
+.brand{display:flex; gap:12px; align-items:center}
+.logo{
+  width:40px;height:40px; display:grid;place-items:center; font-size:22px;
+  background:linear-gradient(135deg,#1c1f28,#12141b); border:1px solid var(--line2);
+  border-radius:11px; box-shadow:inset 0 0 18px rgba(212,175,55,.12);
+}
+.brand-name{font-size:17px; font-weight:800; letter-spacing:2.5px}
+.brand-name span{color:var(--gold)}
+.brand-sub{font-size:11px; color:var(--txt3); letter-spacing:.4px}
+.top-actions{display:flex; align-items:center; gap:8px}
+.sep{width:1px;height:22px;background:var(--line2); margin:0 4px}
+
+/* ======================= PRZYCISKI ======================= */
+.btn{
+  appearance:none; border:1px solid var(--line2); background:var(--panel2); color:var(--txt);
+  padding:8px 14px; border-radius:9px; cursor:pointer; font-size:13px; font-weight:600;
+  transition:.16s; text-decoration:none; display:inline-flex; align-items:center; gap:7px; user-select:none;
+}
+.btn:hover{border-color:var(--gold); color:var(--gold2); background:var(--gold-dim)}
+.btn:active{transform:translateY(1px)}
+.btn.primary{
+  background:linear-gradient(135deg,var(--gold),#b8942c); color:#15130a; border-color:transparent;
+  box-shadow:0 4px 18px rgba(212,175,55,.25);
+}
+.btn.primary:hover{filter:brightness(1.08); color:#15130a}
+.btn.primary:disabled{filter:grayscale(.9) brightness(.6); cursor:not-allowed; box-shadow:none}
+.btn.success{background:linear-gradient(135deg,var(--green),#2aa86f); color:#04170e; border-color:transparent}
+.btn.success:hover{filter:brightness(1.08); color:#04170e}
+.btn.ghost{background:transparent}
+.btn.small{padding:5px 10px; font-size:12px}
+.btn.big{padding:12px 26px; font-size:15px}
+.btn.icon{padding:7px 11px}
+.btn.wide{width:100%; justify-content:center; margin-top:10px}
+
+/* ======================= UKŁAD ======================= */
+#layout{display:grid; grid-template-columns:305px 1fr 360px; gap:12px; padding:12px; height:calc(100vh - 62px)}
+#left,#right{display:flex; flex-direction:column; gap:12px; overflow:auto; min-height:0}
+.card{
+  background:linear-gradient(180deg,var(--panel2),var(--panel)); border:1px solid var(--line);
+  border-radius:var(--radius); padding:14px; box-shadow:var(--shadow);
+}
+.card.grow{flex:1; min-height:120px; overflow:auto}
+.card h3{font-size:13px; letter-spacing:.6px; margin-bottom:10px; color:var(--gold2); text-transform:uppercase}
+.hint{font-size:11.5px; color:var(--txt3); margin-top:8px; line-height:1.45}
+.steps{margin:6px 0 0 18px; display:flex; flex-direction:column; gap:7px; font-size:12.5px; color:var(--txt2)}
+.row{display:flex; gap:8px; align-items:center; font-size:12.5px; color:var(--txt2); margin:7px 0; cursor:pointer}
+.row em{color:var(--txt3); font-style:normal; font-size:11px}
+.row .lbl{min-width:130px}
+input[type=checkbox]{accent-color:var(--gold); width:15px;height:15px; cursor:pointer}
+select,input[type=text],input[type=number],input[type=datetime-local]{
+  background:var(--bg2); border:1px solid var(--line2); color:var(--txt);
+  border-radius:8px; padding:7px 9px; font-size:13px; outline:none;
+}
+select:focus,input:focus{border-color:var(--gold)}
+.num{width:64px}
+
+/* ======================= DROPZONE ======================= */
+#dropzone{
+  border:1.6px dashed var(--line2); border-radius:11px; padding:26px 10px; text-align:center;
+  cursor:pointer; transition:.18s;
+}
+#dropzone:hover,#dropzone.drag{border-color:var(--gold); background:var(--gold-dim)}
+.dz-icon{font-size:34px}
+.dz-title{font-weight:700; margin-top:6px}
+.dz-sub{font-size:11.5px; color:var(--txt3)}
+#file-info{margin-top:10px; padding:10px; background:var(--bg2); border:1px solid var(--line); border-radius:9px}
+.fi-name{font-weight:700; font-size:13px; word-break:break-all}
+.fi-meta{font-size:11.5px; color:var(--txt2); margin-top:3px}
+#progress-wrap{margin-top:10px; height:6px; border-radius:4px; background:var(--bg2); overflow:hidden}
+#progress-bar{height:100%; width:0%; background:linear-gradient(90deg,var(--gold),var(--gold2)); transition:.2s}
+
+/* ======================= PODGLĄD ======================= */
+#center{display:flex; flex-direction:column; min-width:0; min-height:0}
+#viewer-toolbar{
+  display:flex; align-items:center; gap:14px; padding:8px 12px; margin-bottom:8px;
+  background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); font-size:12.5px; color:var(--txt2);
+  flex-wrap:wrap;
+}
+.page-nav{display:flex; align-items:center; gap:8px}
+#pg-label{min-width:96px; text-align:center; color:var(--txt)}
+.legend{display:flex; align-items:center; gap:6px; margin-left:auto}
+.lg{width:11px;height:11px;border-radius:3px; display:inline-block; margin-left:8px; margin-right:2px}
+.lg[data-t=data]{background:var(--gold)}
+.lg[data-t=osoby]{background:var(--blue)}
+.lg[data-t=kwota]{background:var(--green)}
+.lg[data-t=id]{background:var(--red)}
+.lg[data-t=numer]{background:var(--purple)}
+#viewer{
+  flex:1; min-height:0; overflow:auto; position:relative; border-radius:var(--radius);
+  border:1px solid var(--line); background:
+    repeating-conic-gradient(#101219 0% 25%, #0d0f15 0% 50%) 0 0/26px 26px;
+  display:grid; place-items:center;
+}
+#viewer-stage{position:relative; margin:16px; box-shadow:0 18px 50px rgba(0,0,0,.55); border-radius:4px}
+#page-img{display:block; border-radius:4px}
+#boxes{position:absolute; inset:0}
+.box{position:absolute; border:1.4px solid; border-radius:3px; cursor:pointer; transition:background .12s}
+.box:hover{background:rgba(212,175,55,.18)!important}
+.box.changed{border-style:solid; box-shadow:0 0 0 1.4px currentColor}
+#viewer-empty{text-align:center; color:var(--txt3); padding:40px}
+.ve-icon{font-size:56px; margin-bottom:10px; opacity:.75}
+.ve-sub{font-size:12px; margin-top:6px}
+#apply-bar{
+  display:flex; align-items:center; gap:14px; margin-top:8px; padding:10px 12px;
+  background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+}
+#apply-info{font-size:12.5px; color:var(--txt2)}
+
+/* ======================= LISTA DANYCH ======================= */
+.card.head h3{margin-bottom:8px}
+#filter{width:100%}
+.types-row{display:flex; flex-wrap:wrap; gap:5px; margin-top:9px}
+.chip{
+  font-size:10.5px; padding:3px 8px; border-radius:20px; border:1px solid var(--line2);
+  color:var(--txt2); cursor:pointer; user-select:none;
+}
+.chip.on{border-color:var(--gold); color:var(--gold2); background:var(--gold-dim)}
+#items{display:flex; flex-direction:column; gap:7px; padding:10px}
+.empty-list{color:var(--txt3); text-align:center; margin:auto; font-size:13px}
+.it{
+  background:var(--panel3); border:1px solid var(--line2); border-left:3px solid var(--line2);
+  border-radius:9px; padding:8px 10px; display:grid; gap:4px;
+}
+.it.off{opacity:.42}
+.it-head{display:flex; gap:8px; align-items:center}
+.badge{
+  font-size:9.5px; font-weight:800; letter-spacing:.7px; text-transform:uppercase;
+  padding:2px 7px; border-radius:12px; background:var(--bg); border:1px solid;
+}
+.badge.t-data{color:var(--gold); border-color:var(--gold)}
+.badge.t-osoba{color:var(--blue); border-color:var(--blue)}
+.badge.t-kwota{color:var(--green); border-color:var(--green)}
+.badge.t-id{color:var(--red); border-color:var(--red)}
+.badge.t-numer{color:var(--purple); border-color:var(--purple)}
+.badge.t-inne{color:var(--txt2); border-color:var(--line2)}
+.it-label{font-size:11px; color:var(--txt3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.it-vals{display:flex; align-items:center; gap:7px}
+.it-vals input{
+  flex:1; font-family:var(--mono); font-size:12.5px; background:var(--bg2);
+  border:1px solid var(--line2); border-radius:7px; padding:6px 8px; color:var(--gold2); min-width:0;
+}
+.it-vals input.has-new{border-color:var(--green); color:var(--green)}
+.it-vals .old{font-family:var(--mono); font-size:11.5px; color:var(--txt3); white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; max-width:45%}
+.it-meta{display:flex; justify-content:space-between; font-size:10px; color:var(--txt3)}
+.it .score-b{color:var(--orange)}
+.card.foot{display:flex; align-items:center; justify-content:space-between; padding:10px 14px}
+.stat{font-size:12.5px; color:var(--txt2)}
+.stat b{color:var(--gold2)}
+
+/* ======================= MODALE ======================= */
+.dlg{
+  background:var(--panel); color:var(--txt); border:1px solid var(--line2); border-radius:14px;
+  padding:22px; width:min(520px, 92vw); box-shadow:0 24px 80px rgba(0,0,0,.6);
+}
+.dlg::backdrop{background:rgba(5,6,10,.72); backdrop-filter:blur(3px)}
+.dlg h3{color:var(--gold2); margin-bottom:12px; letter-spacing:.5px}
+.dlg .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:10px 0}
+.dlg label{display:flex; flex-direction:column; gap:5px; font-size:12.5px; color:var(--txt2)}
+.dlg .row{flex-direction:row; align-items:center}
+.dlg-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:16px}
+#batch-status{margin-top:10px; font-size:12.5px; max-height:180px; overflow:auto}
+#batch-status table{width:100%; border-collapse:collapse; font-size:12px}
+#batch-status td,#batch-status th{padding:4px 6px; border-bottom:1px solid var(--line); text-align:left}
+#batch-files,#batch-mapping{margin-top:8px; font-size:12px; color:var(--txt2)}
+
+/* ======================= TOASTY ======================= */
+#toasts{position:fixed; right:18px; bottom:18px; display:flex; flex-direction:column; gap:9px; z-index:99}
+.toast{
+  background:var(--panel3); border:1px solid var(--line2); border-left:3px solid var(--gold);
+  color:var(--txt); padding:11px 16px; border-radius:10px; font-size:13px; box-shadow:var(--shadow);
+  animation:tin .22s ease; max-width:380px;
+}
+.toast.err{border-left-color:var(--red)}
+.toast.ok{border-left-color:var(--green)}
+@keyframes tin{from{transform:translateX(30px); opacity:0}to{transform:none; opacity:1}}
+.hidden{display:none!important}
+.spin{display:inline-block; width:14px;height:14px;border:2px solid var(--gold); border-top-color:transparent;
+  border-radius:50%; animation:sp .7s linear infinite; vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}

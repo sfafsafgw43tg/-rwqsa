@@ -1,0 +1,37 @@
+════════════════════════════════════════════════════════
+  KAMELEON PDF — SZYBKA INSTRUKCJA
+════════════════════════════════════════════════════════
+
+PIERWSZE URUCHOMIENIE (wymaga internetu tylko raz):
+  1. Kliknij dwukrotnie:  instalator.bat
+     (zainstaluje wszystko automatycznie — Python, biblioteki,
+      opcjonalnie OCR do skanów; potwierdzaj okna Windows)
+  2. Gotowe!
+
+NORMALNE UŻYWANIE (w pełni offline):
+  1. Kliknij dwukrotnie:  uruchom.bat
+     → otworzy się przeglądarka z aplikacją
+  2. Przeciągnij plik PDF do okna
+  3. Po prawej zobaczysz wykryte: daty, imiona i nazwiska,
+     kwoty, PESEL, NIP, numery kont, telefony itd.
+     — każdy z opisem „za co odpowiada”
+  4. Wpisz nowe wartości w białe pola
+  5. Kliknij „Zastosuj zmiany” → „Pobierz zmieniony PDF”
+
+DODATKOWE MOŻLIWOŚCI:
+  • 🗓 Daty pliku  — zmienia datę utworzenia/modyfikacji pliku
+                     i daty w metadanych PDF
+  • 🔍 OCR skanów  — wczytuje dokumenty zeskanowane (zdjęcia)
+  • 📚 Tryb wsadowy — wgraj wiele podobnych faktur/umów i zastosuj
+                      jedne zmiany do wszystkich naraz
+  • CSV / JSON / MAPA — eksport wykrytych danych i mapowania zmian
+
+WAŻNE:
+  • Nie zamykaj czarnego okna podczas pracy aplikacji
+    (możesz je zminimalizować).
+  • Wszystko dzieje się na Twoim komputerze — pliki NIE są
+    nigdzie wysyłane.
+  • Jeśli coś nie działa: uruchom ponownie instalator.bat.
+
+Przykładowe pliki do testów znajdziesz w folderze „przyklady”.
+════════════════════════════════════════════════════════
