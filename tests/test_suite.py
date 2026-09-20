@@ -8,6 +8,7 @@ _TEMP = tempfile.TemporaryDirectory(prefix="proximal-tests-")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pymupdf
+from app.core.classification import normalize_text
 from app.core import analyzer, replacer, dates, filedates, fonts as fontmod
 from app.core.replacer import ReplaceOptions
 
@@ -78,7 +79,7 @@ mapping = {"Jan Kowalski": "Piotr Zadrożny-Lewandowski", "15.01.2024": "10.03.2
 jobs = [(it, mapping[it.value]) for it in items_f if it.value in mapping]
 reps = replacer.apply_replacements("przyklady/przyklad_faktura.pdf", os.path.join(_TEMP.name, "t_out.pdf"), jobs, ReplaceOptions())
 check("wszystkie podmiany OK", all(r["status"].startswith("ok") for r in reps), f"{len(reps)} operacji")
-doc = pymupdf.open(os.path.join(_TEMP.name, "t_out.pdf")); t = doc[0].get_text(); doc.close()
+doc = pymupdf.open(os.path.join(_TEMP.name, "t_out.pdf")); t = normalize_text(doc[0].get_text()); doc.close()
 check("stare usunięte", not any(o in t for o in mapping))
 check("nowe obecne", all(n in t for n in mapping.values()))
 # geometrycznie: brak kolizji

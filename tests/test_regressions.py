@@ -10,6 +10,7 @@ import pymupdf
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from app.core.classification import normalize_text
 from app.core import analyzer, batch, dates, filedates, fonts, ocr, replacer, report
 from app.core.document import Document
 from app.core.randomize import randomize_items, random_value
@@ -99,7 +100,7 @@ def test_replacement_preserves_label_and_neighbours(pdf, tmp_path):
     output = tmp_path / 'out.pdf'
     replacer.apply_replacements(str(path), str(output), [(item, '654321')])
     with pymupdf.open(output) as doc:
-        text = doc[0].get_text()
+        text = normalize_text(doc[0].get_text())
         assert 'Numer:' in text and 'koniec' in text and '654321' in text and '123456' not in text
 
 

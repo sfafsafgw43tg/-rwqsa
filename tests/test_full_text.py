@@ -8,6 +8,7 @@ import pymupdf
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from app.core.classification import normalize_text
 from app.core import analyzer, fonts, replacer
 from app.core.classification import sort_items, STRUCTURAL_TYPES
 from app.core.randomize import randomize_items
@@ -122,7 +123,7 @@ def test_rotated_text_coverage_and_replacement(tmp_path, rotation, page_rotation
     reports = replacer.apply_replacements(str(source), str(output), [(items[0], 'CD34EF56')])
     assert reports[0]['status'].startswith('ok')
     with pymupdf.open(output) as document:
-        text = document[0].get_text()
+        text = normalize_text(document[0].get_text())
         assert 'AB12CD34' not in text
         assert 'CD34EF56' in text
         lines = analyzer.extract_lines(document[0])
@@ -157,7 +158,7 @@ def test_plain_text_replacement_keeps_adjacent_value(tmp_path):
     reports = replacer.apply_replacements(str(source), str(output), [(item, 'nowy opis')])
     assert reports[0]['status'].startswith('ok')
     with pymupdf.open(output) as document:
-        text = document[0].get_text()
+        text = normalize_text(document[0].get_text())
         assert 'nowy opis' in text
         assert '123456' in text
         assert 'test bez liczb' not in text
@@ -224,7 +225,26 @@ def test_edit_dense_rows_does_not_erase_adjacent_text(tmp_path, rotation):
     reports = replacer.apply_replacements(str(source), str(output), [(person, 'ADAM NOWAK')])
     assert reports[0]['status'].startswith('ok')
     with pymupdf.open(output) as document:
-        text = document[0].get_text()
+        text = normalize_text(document[0].get_text())
         assert 'ADAM NOWAK' in text
         assert 'JAN KOWALSKI' not in text
         assert 'DLUGA 65A' in text
+
+
+def test_windows_space_and_hyphen_aliases_preserve_offsets():
+    text = 'DAWID\xa0NOWAKOWSKI'
+    street = 'DŁUGA\xa065A'
+    town = '29\xad470\xa0WROCŁAW'
+    lines = []
+    for y, value in [(20, text), (40, street), (60, town)]:
+        span = analyzer.SpanInfo(value, (20, y, 220, y + 12), (20, y + 10), 'Arial', 12, 0, 0)
+        lines.append({'text': value, 'spans': [span], 'bbox': span.bbox, 'dir': (1, 0)})
+    items = analyzer.analyze_lines(lines)
+    pairs = {(item.type, item.value) for item in items}
+    assert ('imię i nazwisko', 'DAWID NOWAKOWSKI') in pairs
+    assert ('adres', 'DŁUGA 65A') in pairs
+    assert ('kod pocztowy', '29-470') in pairs
+    assert ('miejscowość', 'WROCŁAW') in pairs
+    assert any('\xa0' in piece.text for item in items for piece in item.pieces)
+    assert any('\xad' in piece.text for item in items for piece in item.pieces)
+    assert len(normalize_text(town)) == len(town)

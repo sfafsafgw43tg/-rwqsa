@@ -123,7 +123,7 @@ W opublikowanym teście zastąpiono nazwisko fikcyjną wartością.
 
 Wynik lokalny po zmianach:
 
-- **96 testów pytest zaliczonych**, 1 pominięty moduł GUI (brak bibliotek systemowych Qt).
+- **97 testów pytest zaliczonych**, 1 pominięty moduł GUI (brak bibliotek systemowych Qt).
 - **30 testów starego zestawu zaliczonych**; rzeczywisty OCR nadal pominięty.
 - Kompilacja Pythona, Ruff (`--select F`) dla zmienionych modułów/testów
   i kontrola `git diff --check`: poprawne.
@@ -152,3 +152,13 @@ Testy GUI zaktualizowano dla dodatkowych etykiet oraz sortowania i powiązania
 edycji z ID. Lokalnie nie są liczone jako zaliczone. W workflow Windows
 włączono `PYTHONUTF8=1`, aby uruchomienie testów z polskimi znakami i symbolami
 nie zależało od strony kodowej konsoli.
+
+### Dodatkowa kontrola Windows
+
+Uruchomienie testów w GitHub Actions ujawniło różne kodowanie glifów w Arial:
+spacja była odczytywana jako NBSP, a zwykły myślnik jako soft hyphen. Powodowało
+to rozbicie adresu i kodu pocztowego. Dopasowanie/wyświetlanie wartości normalizuje
+teraz te znaki 1:1, bez zmiany surowych spanów ani ich pozycji. Testy podmian
+porównują równoważny semantycznie tekst, a osobne testy pokrycia nadal sprawdzają
+każdy oryginalny znak. Samo włączenie UTF-8 w konsoli nie rozwiązywało problemu
+kodowania glifów w PDF. Dodano osobny test tego zachowania.

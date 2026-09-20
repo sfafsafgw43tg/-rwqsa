@@ -386,6 +386,7 @@ def analyze_lines(lines: list[dict], resolver=None, page_no=0, ocr: bool = False
         # syntetyczne 'spany' OCR mają font='Helvetica' — rozwiązywany przez resolver do helv
         resolver = resolver or (lambda sp: fontmod.resolve_font("Helvetica", 0)["font"])
     resolver = resolver or (lambda sp: fontmod.resolve_font(sp.font, sp.flags)["font"])
+    lines = [dict(line, text=classes.normalize_text(line["text"])) for line in lines]
     rows = build_rows(lines)
     items: list[Item] = []
     taken: list[tuple[int, int, int, int]] = []  # (row_idx, part_idx, s, e)

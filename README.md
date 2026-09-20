@@ -78,6 +78,8 @@ nagłówki, etykiety, skróty, ułamki i znaki. Kategorie są lokalną heurystyk
 niepewne rozpoznanie nie usuwa tekstu z listy.
 
 - Imiona i nazwiska zapisane WIELKIMI LITERAMI są obsługiwane.
+- Nietypowe kodowanie spacji i myślników (częste przy czcionkach Windows)
+  jest normalizowane do rozpoznawania; geometria pochodzi nadal z oryginalnych znaków.
 - Ulica z numerem domu jest łączona w kategorię **adres** przy kontekście
   adresowym; kod pocztowy i miejscowość mają osobne kategorie.
 - Rozpoznawane są również e-maile, adresy WWW i oznaczenia firm.

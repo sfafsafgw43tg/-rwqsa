@@ -23,6 +23,17 @@ COMPANY = re.compile(r'(?i)\b(?:sp\.?\s*z\s*o\.?\s*o\.?|s\.a\.|ltd\.?|gmbh|inc\.
 HEADING = re.compile(r'(?i)^(?:faktura|umowa|załącznik|potwierdzenie|oświadczenie|wniosek|rachunek)\b')
 
 
+# Some Windows fonts map the same space/hyphen glyph to NBSP or soft hyphen
+# when embedded in a PDF. Normalize only 1:1 characters for matching/display;
+# raw spans and glyph positions are retained for redaction and coverage.
+_TRANSLATION = str.maketrans({'\u00a0': ' ', '\u202f': ' ', '\u00ad': '-',
+                             '\u2010': '-', '\u2011': '-', '\u2212': '-'})
+
+
+def normalize_text(text):
+    return text.translate(_TRANSLATION)
+
+
 def positional_key(item):
     return (item.page, round(item.rect[1], 1), item.rect[0])
 
